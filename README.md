@@ -44,3 +44,145 @@ The plugin's skills and agents are now available in any Claude Desktop conversat
 - **Publication-quality charts** — styled visualizations with consistent theming
 - **Slide decks** — Marp-powered presentations ready for stakeholder readouts
 - **Data validation** — built-in confidence scoring, source tieout, and logical validation
+
+## Integrations
+
+The plugin ships with three MCP servers that connect to your data and business context. Configure them in **Settings → Plugins → AI Analyst Plugin** after install.
+
+### Athena (Data Warehouse)
+
+Query AWS Athena tables directly from any Claude conversation.
+
+**Required settings:**
+
+| Field | Example | Description |
+|---|---|---|
+| `AWS Profile` | `default` | AWS CLI profile with Athena access |
+| `Athena Database` | `trayaprod` | Default database for queries |
+| `Athena S3 Staging` | `s3://my-bucket/athena-output/` | S3 path where Athena writes query results |
+| `Athena Region` | `ap-south-1` | AWS region |
+| `Athena Workgroup` | `primary` | Athena workgroup name |
+
+**Prerequisites:**
+- AWS CLI installed and `aws configure --profile <name>` completed
+- IAM permissions: `athena:*`, `glue:GetTable*`, `glue:GetDatabase*`, `s3:GetObject` + `s3:PutObject` on the staging bucket
+
+**How to configure (step-by-step):**
+
+1. Open **Claude Desktop** → click the **gear icon** (top-right) → **Settings**
+2. In the left sidebar, click **Plugins**
+3. Find **AI Analyst Plugin** in the installed list → click the **⚙ Configure** button next to it
+4. Scroll to the **Athena** section. Fill in each field:
+   - **AWS Profile** → paste the profile name from your `~/.aws/credentials` file (e.g., `default` or `traya-prod`)
+   - **Athena Database** → the default database queries should target (e.g., `trayaprod`)
+   - **Athena S3 Staging** → the full `s3://...` path where Athena writes query results. Must end with `/`
+   - **Athena Region** → AWS region of your Athena workgroup (e.g., `ap-south-1`)
+   - **Athena Workgroup** → workgroup name (use `primary` if unsure)
+5. Click **Save**
+6. **Restart Claude Desktop** (Cmd+Q then reopen) — MCP servers only pick up env-var changes on restart
+
+**Start it:** Ask *"list athena tables"* or *"sample the orders table"* — the `athena` MCP tools (`list_athena_tables`, `describe_athena_table`, `query_athena`, `sample_table`) become available automatically once the plugin loads.
+
+### Superset (BI Dashboards)
+
+Connect to a Superset instance to read dashboards, charts, and run SQL via the Superset API.
+
+**Required settings:**
+
+| Field | Example | Description |
+|---|---|---|
+| `Superset URL` | `https://superset.example.com` | Base URL of your Superset instance |
+| `Superset API Key` *(recommended)* | `sst_...` | Create at **Superset → Settings → API Keys** |
+| `Superset Username` / `Password` | — | Alternative to API key (DB auth) |
+| `Superset Auth Provider` | `db` | `db` (default), `ldap`, or `oauth` |
+| `Superset Database ID` | `1` | Default DB connection ID (find at **Data → Databases**) |
+| `Superset Schema` | `trayaprod` | Default schema for queries |
+
+**How to configure (step-by-step):**
+
+1. **(One-time) Create a Superset API key:**
+   - Log into Superset in your browser
+   - Click your profile icon (top-right) → **Settings** → **API Keys** (or **Security → API Keys** on older versions)
+   - Click **+ Create**, give it a name (e.g., `ai-analyst-plugin`), and copy the generated key (starts with `sst_...`). **You will not be able to see this key again.**
+2. **(One-time) Find your Database ID:**
+   - In Superset, go to **Data → Databases**
+   - Find the database row you want as default → note the numeric ID in the URL when you click into it (e.g., `/databaseview/edit/1` → ID is `1`)
+3. Open **Claude Desktop** → **Settings** → **Plugins** → **AI Analyst Plugin** → **⚙ Configure**
+4. Scroll to the **Superset** section. Fill in:
+   - **Superset URL** → full base URL, no trailing slash (e.g., `https://superset.example.com`)
+   - **Superset API Key** → paste the `sst_...` key from step 1 *(recommended)*
+   - **Superset Username / Password** → leave empty if using API key; otherwise enter DB-auth credentials
+   - **Superset Auth Provider** → `db` for API key or DB auth; `ldap` or `oauth` if your instance uses those
+   - **Superset Database ID** → the numeric ID from step 2
+   - **Superset Schema** → default schema name (e.g., `trayaprod`)
+5. Click **Save**, then **restart Claude Desktop**
+
+**Start it:** Leave `Superset URL` empty to skip this integration entirely. Otherwise, the `superset` MCP tools activate on plugin load — ask *"list superset dashboards"* or *"run this query against superset"* to use them.
+
+### Knowledge Repo (Business Context)
+
+A GitHub-backed (or local) knowledge base of dataset schemas, metric definitions, business glossary, and SQL patterns. The plugin reads this on every question to ground its answers in your org's reality.
+
+**Required settings — choose ONE source:**
+
+| Field | Example | Description |
+|---|---|---|
+| `Knowledge Repo URL` | `https://github.com/test/knowledge-repo` | GitHub repo (HTTPS or SSH) |
+| `Knowledge Repo Branch` | `main` | Branch to track |
+| `Knowledge GitHub Token` | `ghp_...` | Required only for **private** repos |
+| `Knowledge Local Path` | `/Users/me/knowledge-repo` | Use a local directory instead of GitHub |
+| `Knowledge Datasets` | `traya-health` | Comma-separated dataset IDs (auto-discovered if blank) |
+
+**Expected repo layout:**
+
+```
+knowledge-repo/
+├── datasets/
+│   └── <dataset-id>/
+│       ├── schema.yaml
+│       ├── metrics.yaml
+│       └── glossary.md
+└── organizations/
+    └── <org>/...
+```
+
+**How to configure (step-by-step):**
+
+Pick **one** source — GitHub-backed (recommended for teams) or local (for testing).
+
+**Option A — GitHub-backed knowledge repo:**
+
+1. **(One-time) For private repos only:** create a GitHub Personal Access Token:
+   - Go to https://github.com/settings/tokens → **Generate new token (classic)**
+   - Scope: check **`repo`**
+   - Copy the `ghp_...` token. Public repos can skip this step.
+2. Open **Claude Desktop** → **Settings** → **Plugins** → **AI Analyst Plugin** → **⚙ Configure**
+3. Scroll to the **Knowledge** section. Fill in:
+   - **Knowledge Repo URL** → full HTTPS or SSH URL (e.g., `https://github.com/test/knowledge-repo`)
+   - **Knowledge Repo Branch** → branch name (defaults to `main`)
+   - **Knowledge GitHub Token** → paste the `ghp_...` token (private repos only; leave empty for public)
+   - **Knowledge Datasets** → comma-separated dataset folder names (e.g., `traya-health`). Leave empty to auto-discover all `datasets/*/` folders.
+   - **Knowledge Local Path** → **leave empty**
+4. Click **Save**, then **restart Claude Desktop**
+
+**Option B — Local knowledge directory (for testing):**
+
+1. Clone or create your knowledge repo locally (e.g., `git clone <url> ~/knowledge-repo`)
+2. Open **Settings** → **Plugins** → **AI Analyst Plugin** → **⚙ Configure**
+3. Scroll to the **Knowledge** section:
+   - **Knowledge Repo URL** → **leave empty**
+   - **Knowledge Local Path** → click **Browse**, select the local directory (e.g., `/Users/me/knowledge-repo`)
+   - **Knowledge Datasets** → optional, as above
+4. Click **Save**, then **restart Claude Desktop**
+
+**Start it:** Once configured, the `knowledge` MCP tools (`list_datasets`, `get_page`, `lookup_index`, `refresh_knowledge`) become available. Run `/refresh-dataset` after pushing changes to your knowledge repo to pull the latest.
+
+### Verifying integrations
+
+After install, run any of these in a Claude conversation to confirm each server is up:
+
+- Athena: *"list athena tables"*
+- Superset: *"list superset dashboards"*
+- Knowledge: *"list datasets"* or `/business`
+
+If a server fails to start, check **Settings → Plugins → AI Analyst Plugin → Logs** for the underlying Python error (most commonly a missing AWS profile, an unreachable Superset URL, or an invalid GitHub token).
