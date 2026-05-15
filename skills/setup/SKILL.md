@@ -115,7 +115,7 @@ Three auth options:
    - Superset URL: `http://localhost:8088` (or your instance URL)
    - Superset API Key: `sst_...`
    - Superset Database ID: (find via Superset → Data → Databases, use the ID number)
-   - Superset Schema: `trayaprod` (or your default schema)
+   - Superset Schema: `orgprod` (or your default schema)
 
 **Option B: Username/Password** — for DB auth or LDAP.
 1. Fill in plugin config:

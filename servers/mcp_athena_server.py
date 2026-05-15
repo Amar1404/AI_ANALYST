@@ -39,8 +39,8 @@ def _load_athena_config() -> dict:
     if config_path and Path(config_path).exists():
         return json.loads(Path(config_path).read_text())
     return {
-        "database": os.environ.get("ATHENA_DATABASE", "trayaprod"),
-        "s3_staging_dir": os.environ.get("ATHENA_S3_STAGING", "s3://traya-dp-prod/athena-output/"),
+        "database": os.environ.get("ATHENA_DATABASE", "orgprod"),
+        "s3_staging_dir": os.environ.get("ATHENA_S3_STAGING", "s3://org-dp-prod/athena-output/"),
         "region_name": os.environ.get("ATHENA_REGION", "ap-south-1"),
         "work_group": os.environ.get("ATHENA_WORKGROUP", "jupyter"),
         "profile_name": os.environ.get("AWS_PROFILE", "prod"),
@@ -131,8 +131,8 @@ def query_athena(sql: str) -> str:
 
     Args:
         sql: The SQL SELECT query to execute. Use fully qualified table names
-             for cross-database queries (e.g., trayaprod.engagements_vw).
-             Available databases: trayaprod, tatvav2db_public, traya_marts_ez, google_analytics, facebook_ads.
+             for cross-database queries (e.g., orgprod.engagements_vw).
+             Available databases: orgprod, tatvav2db_public, org_marts_ez, google_analytics, facebook_ads.
              IMPORTANT:
              - Only SELECT queries are supported. No SHOW, USE, DESCRIBE, or DDL.
              - Always include LIMIT to avoid scanning too much data.
@@ -192,9 +192,9 @@ def list_athena_tables(database: str = "") -> str:
     """List all tables in an Athena/Glue database.
 
     Args:
-        database: Glue catalog database name. Defaults to trayaprod.
-                  Common databases: trayaprod, tatvav2db_public,
-                  traya_marts_ez, google_analytics.
+        database: Glue catalog database name. Defaults to orgprod.
+                  Common databases: orgprod, tatvav2db_public,
+                  org_marts_ez, google_analytics.
     """
     try:
         db = database or ATHENA_CONFIG["database"]
@@ -218,7 +218,7 @@ def sample_table(table: str, database: str = "", limit: int = 10) -> str:
 
     Args:
         table: Table name (e.g., engagements_vw, orders_vw).
-        database: Database name. Defaults to trayaprod.
+        database: Database name. Defaults to orgprod.
         limit: Number of rows to return (default 10, max 50).
     """
     try:
@@ -267,7 +267,7 @@ def describe_athena_table(table: str, database: str = "") -> str:
 
     Args:
         table: Table name (e.g., engagements_vw, orders_vw).
-        database: Database name. Defaults to trayaprod.
+        database: Database name. Defaults to orgprod.
     """
     try:
         db = database or ATHENA_CONFIG["database"]

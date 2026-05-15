@@ -58,7 +58,7 @@ Query AWS Athena tables directly from any Claude conversation.
 | Field | Example | Description |
 |---|---|---|
 | `AWS Profile` | `default` | AWS CLI profile with Athena access |
-| `Athena Database` | `trayaprod` | Default database for queries |
+| `Athena Database` | `databasename` | Default database for queries |
 | `Athena S3 Staging` | `s3://my-bucket/athena-output/` | S3 path where Athena writes query results |
 | `Athena Region` | `ap-south-1` | AWS region |
 | `Athena Workgroup` | `primary` | Athena workgroup name |
@@ -73,8 +73,8 @@ Query AWS Athena tables directly from any Claude conversation.
 2. In the left sidebar, click **Plugins**
 3. Find **AI Analyst Plugin** in the installed list → click the **⚙ Configure** button next to it
 4. Scroll to the **Athena** section. Fill in each field:
-   - **AWS Profile** → paste the profile name from your `~/.aws/credentials` file (e.g., `default` or `traya-prod`)
-   - **Athena Database** → the default database queries should target (e.g., `trayaprod`)
+   - **AWS Profile** → paste the profile name from your `~/.aws/credentials` file (e.g., `default` or `org-prod`)
+   - **Athena Database** → the default database queries should target (e.g., `orgprod`)
    - **Athena S3 Staging** → the full `s3://...` path where Athena writes query results. Must end with `/`
    - **Athena Region** → AWS region of your Athena workgroup (e.g., `ap-south-1`)
    - **Athena Workgroup** → workgroup name (use `primary` if unsure)
@@ -96,7 +96,7 @@ Connect to a Superset instance to read dashboards, charts, and run SQL via the S
 | `Superset Username` / `Password` | — | Alternative to API key (DB auth) |
 | `Superset Auth Provider` | `db` | `db` (default), `ldap`, or `oauth` |
 | `Superset Database ID` | `1` | Default DB connection ID (find at **Data → Databases**) |
-| `Superset Schema` | `trayaprod` | Default schema for queries |
+| `Superset Schema` | `databaseName` | Default schema for queries |
 
 **How to configure (step-by-step):**
 
@@ -114,7 +114,7 @@ Connect to a Superset instance to read dashboards, charts, and run SQL via the S
    - **Superset Username / Password** → leave empty if using API key; otherwise enter DB-auth credentials
    - **Superset Auth Provider** → `db` for API key or DB auth; `ldap` or `oauth` if your instance uses those
    - **Superset Database ID** → the numeric ID from step 2
-   - **Superset Schema** → default schema name (e.g., `trayaprod`)
+   - **Superset Schema** → default schema name (e.g., `orgprod`)
 5. Click **Save**, then **restart Claude Desktop**
 
 **Start it:** Leave `Superset URL` empty to skip this integration entirely. Otherwise, the `superset` MCP tools activate on plugin load — ask *"list superset dashboards"* or *"run this query against superset"* to use them.
@@ -131,7 +131,7 @@ A GitHub-backed (or local) knowledge base of dataset schemas, metric definitions
 | `Knowledge Repo Branch` | `main` | Branch to track |
 | `Knowledge GitHub Token` | `ghp_...` | Required only for **private** repos |
 | `Knowledge Local Path` | `/Users/me/knowledge-repo` | Use a local directory instead of GitHub |
-| `Knowledge Datasets` | `traya-health` | Comma-separated dataset IDs (auto-discovered if blank) |
+| `Knowledge Datasets` | `org-health` | Comma-separated dataset IDs (auto-discovered if blank) |
 
 **Expected repo layout:**
 
@@ -161,7 +161,7 @@ Pick **one** source — GitHub-backed (recommended for teams) or local (for test
    - **Knowledge Repo URL** → full HTTPS or SSH URL (e.g., `https://github.com/test/knowledge-repo`)
    - **Knowledge Repo Branch** → branch name (defaults to `main`)
    - **Knowledge GitHub Token** → paste the `ghp_...` token (private repos only; leave empty for public)
-   - **Knowledge Datasets** → comma-separated dataset folder names (e.g., `traya-health`). Leave empty to auto-discover all `datasets/*/` folders.
+   - **Knowledge Datasets** → comma-separated dataset folder names (e.g., `org-health`). Leave empty to auto-discover all `datasets/*/` folders.
    - **Knowledge Local Path** → **leave empty**
 4. Click **Save**, then **restart Claude Desktop**
 

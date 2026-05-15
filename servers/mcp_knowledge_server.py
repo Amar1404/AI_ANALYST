@@ -206,7 +206,7 @@ def lookup_index(terms: list[str], dataset: str) -> str:
     Args:
         terms: List of terms to look up (table names, metric names, business
                terms like "O2", "retention", "channel").
-        dataset: Dataset identifier (e.g., "traya-health").
+        dataset: Dataset identifier (e.g., "org-health").
 
     Returns:
         JSON with mandatory pages and matching term entries.
@@ -242,7 +242,7 @@ def get_page(file: str, dataset: str, section: str = "") -> str:
     Args:
         file: Relative file path within the dataset (e.g., "quirks.md",
               "metrics/retention.yaml", "schema.md").
-        dataset: Dataset identifier (e.g., "traya-health").
+        dataset: Dataset identifier (e.g., "org-health").
         section: Optional section heading to extract. If empty, returns
                  the full file content.
 
@@ -301,7 +301,7 @@ def get_quirks(dataset: str) -> str:
     of rules rather than specific sections.
 
     Args:
-        dataset: Dataset identifier (e.g., "traya-health").
+        dataset: Dataset identifier (e.g., "org-health").
 
     Returns:
         Full content of quirks.md.
