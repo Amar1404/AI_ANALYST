@@ -1,8 +1,8 @@
 {
   "name": "amarjeet-ai-analyst",
   "owner": {
-    "name": "AmarTraya",
-    "email": "amarjeetsingh@traya.health"
+    "name": "Amarjeet Singh",
+    "email": "amarjeet.singh55@hotmail.com"
   },
   "plugins": [
     {
@@ -11,7 +11,7 @@
       "description": "AI-powered product analytics: ask a business question, get validated findings, publication-quality charts, and a slide deck.",
       "version": "2.2.0",
       "author": {
-        "name": "AmarTraya"
+        "name": "Amarjeet Singh"
       }
     }
   ]
