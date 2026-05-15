@@ -1,0 +1,38 @@
+# Connection Template: AWS Athena
+# Copy to .knowledge/datasets/{name}/manifest.yaml and fill in values.
+# Requires: pip install pyathena
+# Auth: uses boto3 credential chain (IAM role, SSO, profile, or env vars).
+
+dataset_id: "{dataset_id}"
+display_name: "{Display Name}"
+description: "{Brief description of the dataset}"
+domain: "{e-commerce|saas|fintech|marketplace|other}"
+created_at: "{YYYY-MM-DD}"
+is_seed: false
+
+connection:
+  type: athena
+  database: "{glue_database}"           # Glue catalog database name
+  s3_staging_dir: "s3://{bucket}/athena-results/"
+  region_name: "{aws-region}"           # e.g., us-east-1
+  work_group: "primary"                 # Athena workgroup
+  auth_type: "default"                  # "default", "profile", or "credentials"
+  profile_name: ""                      # Required if auth_type=profile
+  access_key_env: ""                    # Env var name, required if auth_type=credentials
+  secret_key_env: ""                    # Env var name, required if auth_type=credentials
+
+summary:
+  table_count: null
+  total_rows: null
+  date_range: null
+  primary_entities: []
+  key_dimensions: []
+  last_profiled: null
+
+local_data:
+  path: null
+  duckdb: null
+
+status: active
+last_used: null
+analysis_count: 0

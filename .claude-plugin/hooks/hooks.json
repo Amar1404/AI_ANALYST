@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m pip install -q -t \"${CLAUDE_PLUGIN_DATA}/deps\" -r \"${CLAUDE_PLUGIN_ROOT}/requirements.txt\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

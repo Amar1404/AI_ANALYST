@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.egg-info/
+dist/
+build/
+.env
+*.log
+working/
+outputs/
+venv/
+docs/
+
+# Personal connection configs (contain AWS profiles, S3 paths, etc.)
+*.local
+manifest.yaml.local

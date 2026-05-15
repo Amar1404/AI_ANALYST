@@ -1,0 +1,40 @@
+{
+  "mcpServers": {
+    "knowledge": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/mcp_knowledge_server.py"],
+      "env": {
+        "KNOWLEDGE_CACHE_DIR": "${CLAUDE_PLUGIN_DATA}/knowledge-cache",
+        "KNOWLEDGE_REPO_URL": "${user_config.knowledge_repo_url}",
+        "KNOWLEDGE_REPO_BRANCH": "${user_config.knowledge_repo_branch}",
+        "KNOWLEDGE_LOCAL_PATH": "${user_config.knowledge_local_path}",
+        "KNOWLEDGE_DATASETS": "${user_config.knowledge_datasets}",
+        "KNOWLEDGE_GITHUB_TOKEN": "${user_config.knowledge_github_token}"
+      }
+    },
+    "athena": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/mcp_athena_server.py"],
+      "env": {
+        "AWS_PROFILE": "${user_config.aws_profile}",
+        "ATHENA_DATABASE": "${user_config.athena_database}",
+        "ATHENA_S3_STAGING": "${user_config.athena_s3_staging}",
+        "ATHENA_REGION": "${user_config.athena_region}",
+        "ATHENA_WORKGROUP": "${user_config.athena_workgroup}"
+      }
+    },
+    "superset": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/mcp_superset_server.py"],
+      "env": {
+        "SUPERSET_BASE_URL": "${user_config.superset_url}",
+        "SUPERSET_USERNAME": "${user_config.superset_username}",
+        "SUPERSET_PASSWORD": "${user_config.superset_password}",
+        "SUPERSET_API_KEY": "${user_config.superset_api_key}",
+        "SUPERSET_AUTH_PROVIDER": "${user_config.superset_auth_provider}",
+        "SUPERSET_DATABASE_ID": "${user_config.superset_database_id}",
+        "SUPERSET_SCHEMA": "${user_config.superset_schema}"
+      }
+    }
+  }
+}
