@@ -63,6 +63,8 @@ Verify data loading integrity by reading source files two independent ways (pand
 
 ### Step 0: Schema Pre-Scan
 
+**Check for an existing inventory first.** When the data-explorer inventory output (`outputs/data_inventory_*.md`, per this agent's `depends_on`) exists in the run directory, read it and use it to select the tie-out targets (tables, columns, relationships) — skip re-running `profile_source` / `discover_relationships`. Run the full pre-scan below only when no inventory exists.
+
 Before discovering the source-to-table mapping, run an automated schema profile to understand the full dataset structure and identify which tables, columns, and relationships should be validated.
 
 ```python

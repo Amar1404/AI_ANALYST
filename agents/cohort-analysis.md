@@ -112,13 +112,23 @@ For each cohort, count the number of unique users (the "starting count"). This i
 ### Step 2: Build Retention Matrix
 For each cohort, compute the percentage of users who performed {{RETENTION_EVENT}} in each subsequent period.
 
-**2a. Count retained users per period**
-For each (cohort, period_offset) pair, count the number of distinct users from that cohort who performed the retention event during that period.
+**2a. Build the ENTIRE retention matrix in ONE query**
+Compute every (cohort, period_offset) cell in a single query: join each user's cohort assignment to their retention events, derive `period_offset` as a `date_diff` bucket between the cohort period and the event period, and `GROUP BY cohort, period_offset`. Never compute the matrix cell-by-cell or cohort-by-cohort — one scan produces all cells at once.
 
-```python
-# Example: For cohort "2024-01", period_offset 3
-# Count distinct users whose first event was in Jan 2024
-# AND who performed the retention event in Apr 2024 (3 months later)
+```sql
+-- Full retention matrix in ONE query (monthly example):
+WITH cohorts AS (
+  SELECT user_id, date_trunc('month', MIN(event_ts)) AS cohort
+  FROM events
+  GROUP BY user_id
+)
+SELECT
+  c.cohort,
+  date_diff('month', c.cohort, date_trunc('month', e.event_ts)) AS period_offset,
+  COUNT(DISTINCT e.user_id) AS retained_users
+FROM cohorts c
+JOIN retention_events e USING (user_id)
+GROUP BY 1, 2
 ```
 
 **2b. Compute retention rates**
@@ -152,7 +162,7 @@ Determine the maximum observable period for each cohort based on the date range 
 Produce the "average retention curve" across all mature cohorts.
 
 **4a. Average across cohorts**
-For each period offset, compute the mean retention rate using only cohorts that have reached that period (excluding N/A values). This is the aggregate retention curve.
+For each period offset, compute the mean retention rate using only cohorts that have reached that period (excluding N/A values). This is the aggregate retention curve. This is an in-memory computation over the retention matrix already built in Step 2 (pandas or window functions) — do NOT run new database queries for it.
 
 **4b. Add confidence intervals**
 Use `confidence_interval()` from `helpers/stats_helpers.py` to compute a 95% confidence interval for the mean retention at each period.
@@ -196,15 +206,23 @@ If the dataset contains revenue or order data, compute cumulative revenue per us
 Determine whether the data includes revenue columns (e.g., order_total, revenue, transaction_amount). If not, skip this step and note: "LTV analysis skipped — no revenue data available."
 
 **5b-ii. Compute cumulative LTV per cohort**
-For each (cohort, period_offset) pair, compute:
-- Total cumulative revenue from that cohort up to that period
+Add the LTV columns to the SAME matrix query from Step 2a — `SUM(revenue)` alongside the distinct-user count — or, at most, run one second matrix query grouped by (cohort, period_offset). Never loop per (cohort, period_offset) pair. Then:
+- Derive cumulative revenue with a window function: `SUM(period_revenue) OVER (PARTITION BY cohort ORDER BY period_offset)`
 - Divide by cohort starting count to get per-user LTV
 
-```python
-# Example: Cohort "2024-01" at Period 3
-# Sum all revenue from users in that cohort across Periods 0-3
-# Divide by cohort starting count
-# Result: cumulative LTV per user at Period 3
+```sql
+-- LTV columns added to the single matrix query:
+SELECT
+  c.cohort,
+  date_diff('month', c.cohort, date_trunc('month', e.event_ts)) AS period_offset,
+  COUNT(DISTINCT e.user_id) AS retained_users,
+  SUM(e.revenue) AS period_revenue
+FROM cohorts c
+JOIN events e USING (user_id)
+GROUP BY 1, 2
+-- Then (in the query or in pandas):
+-- cumulative_ltv = SUM(period_revenue) OVER (PARTITION BY cohort ORDER BY period_offset)
+--                  / cohort_starting_count
 ```
 
 **5b-iii. Plot LTV curves by cohort**
@@ -226,7 +244,7 @@ Take the 3 oldest cohorts that have data for all {{PERIODS}} periods (or the max
 Compute the mean retention rate at each period across these 3 cohorts. This is the "mature cohort benchmark."
 
 **6c. Compare newer cohorts to benchmark**
-For each newer cohort, compute the difference from the benchmark at each period. Flag periods where newer cohorts deviate by more than 5 percentage points from the benchmark.
+For each newer cohort, compute the difference from the benchmark at each period. Flag periods where newer cohorts deviate by more than 5 percentage points from the benchmark. This comparison is an in-memory computation over the already-built retention matrix (pandas or window functions), NOT a new database query.
 
 ### Step 7: Produce Visualizations
 Generate charts that make the retention data immediately interpretable.
@@ -272,7 +290,7 @@ Retention should generally decrease over time (or plateau). If retention at Peri
 Check whether cohort sizes vary dramatically (e.g., one cohort is 10x larger than another). Large variance in cohort sizes can skew aggregate curves. If variance is high, note which cohorts dominate the aggregate and whether this affects conclusions.
 
 **8f. Cross-validation**
-Spot-check at least 2 cells in the retention matrix by running the underlying query manually and confirming the count matches. Document which cells were checked and the result.
+Spot-check exactly 2 cells in the retention matrix by running the underlying query manually and confirming the count matches. This is the one deliberate validation re-query in the workflow — cap it at 2 cells. Document which cells were checked and the result.
 
 ## Output Format
 

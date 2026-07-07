@@ -1,0 +1,9 @@
+# Code owners — these files require review from the maintainer
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Security-sensitive files
+.gitignore              @Amar1404
+.claude/                @Amar1404
+connection_templates/   @Amar1404
+scripts/                @Amar1404
+.github/                @Amar1404

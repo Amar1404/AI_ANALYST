@@ -9,6 +9,10 @@ description: >
 
 # Skill: Runs
 
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
+
 ## Purpose
 Browse, inspect, compare, and clean up past pipeline runs. Each run is a
 self-contained directory under `working/runs/` with its own working files,

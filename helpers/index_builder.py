@@ -179,7 +179,7 @@ def build_index(repo_dir: Path | str, dataset_id: str) -> dict:
                 for ref in re.findall(r"`([a-zA-Z_][a-zA-Z0-9_.]*)`", content):
                     _add_term(ref, "quirks.md", heading, f"See {heading}")
 
-    # --- Schema sections (table names only, not columns) ---
+    # --- Schema sections (table names and their columns) ---
     schema_path = ds_dir / "schema.md"
     if schema_path.exists():
         for heading, content in extract_markdown_sections(schema_path).items():
@@ -189,6 +189,10 @@ def build_index(repo_dir: Path | str, dataset_id: str) -> dict:
             if "." in heading:
                 short_name = heading.split(".")[-1]
                 _add_term(short_name, "schema.md", heading, ctx)
+            # Index column names so column-level questions resolve from the
+            # catalog instead of falling back to live Athena discovery.
+            for col in _extract_column_names(content):
+                _add_term(col, "schema.md", heading, f"column of {heading}")
 
     # --- Metrics ---
     metrics_dir = ds_dir / "metrics"
@@ -204,10 +208,10 @@ def build_index(repo_dir: Path | str, dataset_id: str) -> dict:
                 )
 
     # --- Glossary (from organizations/) ---
-    orgs_dir = repo_dir / "organizations"
-    if orgs_dir.is_dir():
-        for org_dir in sorted(orgs_dir.iterdir()):
-            glossary_path = org_dir / "business" / "glossary" / "terms.yaml"
+    trayas_dir = repo_dir / "organizations"
+    if trayas_dir.is_dir():
+        for traya_dir in sorted(trayas_dir.iterdir()):
+            glossary_path = traya_dir / "business" / "glossary" / "terms.yaml"
             if glossary_path.exists():
                 rel_path = "glossary/terms.yaml"
                 for term_entry in extract_yaml_terms(glossary_path, kind="glossary"):

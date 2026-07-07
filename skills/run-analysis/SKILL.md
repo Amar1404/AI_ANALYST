@@ -1,13 +1,26 @@
 ---
 name: run-analysis
-description: "USE THIS SKILL for full end-to-end analytical pipelines, presentation decks, or deep investigations. Triggers when the user says 'run analysis', 'full pipeline', 'end-to-end', 'build me a deck', 'give me the full picture', 'comprehensive analysis', or any request for a polished slide deck with charts. Also use when ask-question classifies a question as L5. This skill orchestrates 18 specialized agents in a DAG pipeline — from framing through charting to a finished Marp deck. Do NOT attempt to build presentations or run multi-agent analysis workflows without this skill."
+description: "Use this skill for full end-to-end analytical pipelines, presentation decks, or deep investigations. Triggers when the user says 'run analysis', 'full pipeline', 'end-to-end', 'build me a deck', 'give me the full picture', 'comprehensive analysis', or any request for a polished slide deck with charts. Also use when ask-question classifies a question as L5. This skill orchestrates 18 specialized agents in a DAG pipeline — from framing through charting to a finished Marp deck. Use it to build presentations or run multi-agent analysis workflows rather than assembling them by hand."
 ---
 
 # Run Analysis — Full Pipeline Orchestrator
 
 You are orchestrating a complete analytical pipeline. This is the heavyweight skill — it produces validated findings, SWD-quality charts, and a polished slide deck.
 
-## Step 0: Load Context (Mandatory)
+## Model conventions (read first)
+
+This skill is version-aware — apply `skills/MODEL_CONVENTIONS.md` for the model you are.
+The two that matter most for orchestration:
+- **Subagent fan-out is explicit** (§B): newer models spawn *fewer* subagents by default.
+  The DAG's correctness depends on the declared agents actually running as separate
+  subagents. When a tier lists multiple independent agents, spawn them as parallel
+  subagents in one turn — don't collapse a tier into a single inline pass to save calls.
+  The exception is a tier with one trivial agent you can finish inline.
+- **Effort** (§D): the full pipeline is intelligence-sensitive end-to-end. Run at
+  `high`/`xhigh`. If effort is `low`/`medium`, tell the user once that deck quality and
+  validation depth improve at higher effort, then proceed.
+
+## Step 0: Load Context
 
 Before anything else:
 
@@ -28,6 +41,21 @@ Load from `.knowledge/` if available:
 2. User profile (detail level, chart preference, technical level)
 3. Corrections log (known data issues)
 4. Query archaeology (reusable SQL)
+
+**Query results are file-first.** `query_athena(sql, out_path="")` writes the full result to a
+CSV and inlines rows only when ≤ 50. The analytical agents run aggregated queries, so their
+results stay inline as before. For any bulk/raw pull, the tool returns a handle and the agent
+reads it back in bounded chunks (`nrows=`/`chunksize=`), never full-loading. Deliverables the
+user explicitly requests go to the chosen `out_path`; everything else is a self-cleaning
+intermediate in `.query-cache/<session_id>/`.
+
+**Agents share data — they don't re-fetch it.** Repeated identical SQL is served from the
+session query cache (`"cached": true`) without hitting Athena, but the real rule is upstream:
+every agent prompt you dispatch must list the data files earlier agents already produced (the
+run's `working/` CSVs, data-explorer's inventory, `timeseries_prepared.csv`, query handles
+from `.query-cache/<session_id>/`) and instruct the agent to work from those files first,
+querying the source only for data no prior agent has fetched. Parallel Phase-2 agents get the
+same base-extract pointer so they don't each re-pull the same base data.
 
 ## Step 1: Parse Arguments
 
@@ -58,7 +86,22 @@ If arguments are missing, ask the user.
 
 ## Step 3: Execute the DAG
 
-Read `agents/registry.yaml` to get the full dependency graph. Execute tier by tier:
+Read `agents/registry.yaml` to get the full dependency graph. Execute tier by tier.
+
+**Spawning model (per MODEL_CONVENTIONS §B):** each agent in a tier runs as its own
+subagent — read its `.md` from `agents/` and dispatch it. When a tier lists several
+agents whose dependencies are satisfied, dispatch them **as parallel subagents in the
+same turn** so they run concurrently. The independent perspectives are the point of the
+DAG; running them inline as one merged pass defeats source-tieout and validation acting
+as independent checks.
+
+> **Lean cores + on-demand extended specs.** Agents now carry a lean core `.md` (purpose,
+> inputs/outputs, the full workflow skeleton, and every HALT/validation gate). The larger
+> specs keep their situational implementation detail — code snippets, helper signatures,
+> full output templates — in a companion `agents/references/<name>-extended.md`, which the
+> agent loads on demand when it needs the detail for a step. This does not change dispatch:
+> R8 still holds — the core `.md` is read from disk each phase. Only the extended detail is
+> deferred, and only the agent itself loads it.
 
 ### Phase 1: Framing (Agents: question-framing, hypothesis)
 - Read each agent's .md file from `agents/` directory
@@ -96,9 +139,9 @@ Read `agents/registry.yaml` to get the full dependency graph. Execute tier by ti
 - Non-critical agents (visual-design-critic, narrative-coherence-reviewer) continue with warning
 - Circuit breaker: 3+ critical failures → HALT pipeline
 
-## Chart Standards (Apply to ALL Charts in Pipeline)
+## Chart Standards (every chart in the pipeline)
 
-**EVERY chart** must follow SWD (Storytelling with Data) methodology:
+Apply SWD (Storytelling with Data) methodology to every chart. Call `swd_style()` first:
 
 ```python
 import sys
@@ -106,21 +149,17 @@ sys.path.insert(0, '<plugin-path>/helpers')
 from chart_helpers import swd_style, highlight_bar, highlight_line, action_title, save_chart
 ```
 
-- **Always call `swd_style()` first**
-- Background: `#F7F6F2` (warm off-white, NEVER pure white)
-- Highlight color: `#D97706` (Action Amber) for the key finding
-- Problem color: `#DC2626` (Accent Red) for negative findings
-- Everything else: gray (`#9CA3AF`)
-- **Title = takeaway** ("Enterprise grew 3x" not "Revenue by Plan")
-- Remove top/right spines, no data markers, direct labels instead of legends
-- Standard figsize: `(10, 6)` at 150 DPI
-
-### NON-NEGOTIABLE RULES
-- **R2:** Chart title ≠ Slide headline (chart = specific data claim, slide = narrative framing)
-- **R3:** Chart background is #F7F6F2 (verified by swd_style())
-- **R6:** Breathing slides every 3-4 insight slides
-- **R7:** All charts at (10, 6) figsize / 150 DPI
-- **R8:** Agent files MUST be read from disk at each phase
+- **R2 — Chart title is the takeaway, and differs from the slide headline.** The chart title
+  is a specific data claim ("Enterprise grew 3x", not "Revenue by Plan"); the slide headline
+  is the narrative framing. Keep them distinct.
+- **R3 — Background `#F7F6F2`** (warm off-white, not pure white), verified by `swd_style()`.
+- **Color only the story.** Highlight the key finding in `#D97706` (Action Amber), negative
+  findings in `#DC2626` (Accent Red); everything else stays gray (`#9CA3AF`).
+- **R6 — Breathing slides** every 3-4 insight slides.
+- **R7 — Standard sizing:** `(10, 6)` figsize at 150 DPI.
+- **R8 — Read each agent's `.md` from disk at the start of each phase** (the spec is the
+  source of truth; do not run an agent from memory).
+- Remove top/right spines, drop data markers, and use direct labels instead of legends.
 
 ## Step 4: Progress Reporting
 

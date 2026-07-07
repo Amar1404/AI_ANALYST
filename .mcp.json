@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "knowledge": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/mcp_knowledge_server.py"],
       "env": {
         "KNOWLEDGE_CACHE_DIR": "${CLAUDE_PLUGIN_DATA}/knowledge-cache",
@@ -13,7 +13,7 @@
       }
     },
     "athena": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/mcp_athena_server.py"],
       "env": {
         "AWS_PROFILE": "${user_config.aws_profile}",
@@ -24,7 +24,7 @@
       }
     },
     "superset": {
-      "command": "python",
+      "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/mcp_superset_server.py"],
       "env": {
         "SUPERSET_BASE_URL": "${user_config.superset_url}",
@@ -34,6 +34,17 @@
         "SUPERSET_AUTH_PROVIDER": "${user_config.superset_auth_provider}",
         "SUPERSET_DATABASE_ID": "${user_config.superset_database_id}",
         "SUPERSET_SCHEMA": "${user_config.superset_schema}"
+      }
+    },
+    "openmetadata": {
+      "command": "npx",
+      "args": [
+        "-y", "mcp-remote",
+        "${user_config.openmetadata_url}/mcp",
+        "--header", "Authorization:${OM_AUTH_HEADER}"
+      ],
+      "env": {
+        "OM_AUTH_HEADER": "Bearer ${user_config.openmetadata_pat}"
       }
     }
   }

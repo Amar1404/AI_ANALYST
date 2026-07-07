@@ -9,6 +9,10 @@ description: >
 
 # Skill: Forecast
 
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
+
 ## Purpose
 Generate time-series forecasts for key metrics using the forecast_helpers
 library. Supports naive baselines, seasonality detection, and exponential

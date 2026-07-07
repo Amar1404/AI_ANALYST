@@ -9,6 +9,10 @@ description: >
 
 # Skill: Business Context Browser
 
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
+
 > Interactive browser for your organization's knowledge system. Explore terms,
 > products, metrics, objectives, and team structure. Also optionally crawl Notion
 > workspaces to extract and populate business context.
@@ -17,9 +21,9 @@ description: >
 Invoked as `/business` or `/business {subcommand}` or `/notion-ingest`
 
 ## Prerequisites
-- Organization context must exist at `<workspace>/knowledge/organizations/{org}/`
+- organization context must exist at `<workspace>/knowledge/organizations/{traya}/`
 - Read `<workspace>/knowledge/setup-state.yaml` to find active organization
-- If no org configured: "No organization context found. Run `/setup` Phase 3 to configure business context, or create one manually at `<workspace>/knowledge/organizations/{name}/`."
+- If no traya configured: "No organization context found. Run `/setup` Phase 3 to configure business context, or create one manually at `<workspace>/knowledge/organizations/{name}/`."
 
 ## Subcommands
 
@@ -27,7 +31,7 @@ Invoked as `/business` or `/business {subcommand}` or `/notion-ingest`
 Display a summary of available business context:
 
 ```
-Business Context: {org_name}
+Business Context: {traya_name}
 
   Glossary:    {n} terms defined
   Products:    {n} products cataloged
@@ -39,8 +43,8 @@ Type /business {category} for details.
 ```
 
 **Implementation:**
-1. Read `<workspace>/knowledge/organizations/{org}/manifest.yaml` for org name
-2. Use `helpers/business_context.py` → `load_business_context(org_path)`
+1. Read `<workspace>/knowledge/organizations/{traya}/manifest.yaml` for traya name
+2. Use `helpers/business_context.py` → `load_business_context(traya_path)`
 3. Count entries in each category
 4. Display summary table
 
@@ -61,7 +65,7 @@ Glossary ({n} terms)
 1. Load from `business/glossary/terms.yaml`
 2. Sort alphabetically
 3. Show first 20 terms; offer "Show all" if more
-4. If empty: "No glossary terms defined. Add terms to `<workspace>/knowledge/organizations/{org}/business/glossary/terms.yaml`."
+4. If empty: "No glossary terms defined. Add terms to `<workspace>/knowledge/organizations/{traya}/business/glossary/terms.yaml`."
 
 ### `/business products` — View Product Catalog
 Display product hierarchy:
@@ -79,7 +83,7 @@ Products ({n} total)
 **Implementation:**
 1. Load from `business/products/index.yaml`
 2. Display in table format
-3. If empty: "No products defined. Add products to `<workspace>/knowledge/organizations/{org}/business/products/index.yaml`."
+3. If empty: "No products defined. Add products to `<workspace>/knowledge/organizations/{traya}/business/products/index.yaml`."
 
 ### `/business metrics` — Inspect Metric Definitions
 Display metric dictionary:
@@ -98,7 +102,7 @@ Metrics ({n} defined)
 1. Load from `business/metrics/index.yaml`
 2. Cross-reference with `<workspace>/knowledge/datasets/{active}/metrics/` if available
 3. Show definition, type, owner
-4. If empty: "No metrics defined. Use `/metrics add` to define metrics, or add to `<workspace>/knowledge/organizations/{org}/business/metrics/index.yaml`."
+4. If empty: "No metrics defined. Use `/metrics add` to define metrics, or add to `<workspace>/knowledge/organizations/{traya}/business/metrics/index.yaml`."
 
 ### `/business objectives` — Review OKRs/Goals
 Display current objectives:
@@ -116,7 +120,7 @@ Objectives ({n} active)
 **Implementation:**
 1. Load from `business/objectives/index.yaml`
 2. Show status indicators (On Track / At Risk / Behind)
-3. If empty: "No objectives defined. Add OKRs to `<workspace>/knowledge/organizations/{org}/business/objectives/index.yaml`."
+3. If empty: "No objectives defined. Add OKRs to `<workspace>/knowledge/organizations/{traya}/business/objectives/index.yaml`."
 
 ### `/business teams` — Show Team Structure
 Display team organization:
@@ -134,7 +138,7 @@ Teams ({n} mapped)
 **Implementation:**
 1. Load from `business/teams/index.yaml`
 2. Show team summary
-3. If empty: "No teams defined. Add team structure to `<workspace>/knowledge/organizations/{org}/business/teams/index.yaml`."
+3. If empty: "No teams defined. Add team structure to `<workspace>/knowledge/organizations/{traya}/business/teams/index.yaml`."
 
 ### `/business lookup {term}` — Search
 Search across all categories for a term:
@@ -265,7 +269,7 @@ For each crawled page, attempt to classify and extract structured knowledge:
 | KPI, metric, formula | Metric definition | `business/metrics/index.yaml` |
 | Product name, feature list | Product entry | `business/products/index.yaml` |
 | OKR, objective, key result | Objective | `business/objectives/index.yaml` |
-| Team name, org chart | Team entry | `business/teams/index.yaml` |
+| Team name, traya chart | Team entry | `business/teams/index.yaml` |
 | SQL query, data pattern | Query archaeology | `<workspace>/knowledge/query-archaeology/raw/` |
 
 ### Step 7: Progress Reporting
@@ -305,7 +309,7 @@ Notion ingest complete!
 ```
 
 ## Error Handling
-- Missing org directory → suggest `/setup` Phase 3
+- Missing traya directory → suggest `/setup` Phase 3
 - Empty categories → show helpful "how to add" message with file path
 - Malformed YAML → show parse error, suggest checking file syntax
 - Partial context (some categories empty) → show what exists, note gaps

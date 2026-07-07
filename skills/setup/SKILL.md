@@ -1,9 +1,13 @@
 ---
 name: setup
-description: "USE THIS SKILL when a user wants to set up, configure, or get started with the AI Analyst. Triggers on 'set up', 'get started', 'configure', '/setup', 'onboard me', or any first-time setup request. Also use when the user opens a new session and hasn't configured their profile yet — if you detect no .knowledge/ directory or no profile.md, proactively suggest running setup. This skill runs a conversational 4-phase interview that configures the analytical environment: role & expertise, data connection, business context, and output preferences."
+description: "Use this skill when a user wants to set up, configure, or get started with the AI Analyst. Triggers on 'set up', 'get started', 'configure', '/setup', 'onboard me', or any first-time setup request. Also use when the user opens a new session and hasn't configured their profile yet — if you detect no .knowledge/ directory or no profile.md, proactively suggest running setup. This skill runs a conversational 4-phase interview that configures the analytical environment: role & expertise, data connection, business context, and output preferences."
 ---
 
 # Setup — First-Run Configuration
+
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
 
 You are onboarding a new user. Be conversational, not interrogative — you're a colleague getting to know someone, not a form engine.
 
@@ -115,7 +119,7 @@ Three auth options:
    - Superset URL: `http://localhost:8088` (or your instance URL)
    - Superset API Key: `sst_...`
    - Superset Database ID: (find via Superset → Data → Databases, use the ID number)
-   - Superset Schema: `orgprod` (or your default schema)
+   - Superset Schema: `trayaprod` (or your default schema)
 
 **Option B: Username/Password** — for DB auth or LDAP.
 1. Fill in plugin config:
@@ -167,13 +171,19 @@ Then add to Claude Desktop config:
 }
 ```
 
+**For OpenMetadata (optional — live schema & descriptions):**
+
+If the org runs OpenMetadata (a metadata catalog), it can serve as the **preferred live source** for table/column schema and descriptions, so schema changes flow through without editing the knowledge repo. It does NOT replace quirks, metrics, golden queries, or PII/partition guardrails — those always come from the Knowledge Repo (Phase 2.5).
+
+To enable: in plugin config, set **OpenMetadata URL** (e.g. `https://openmetadata.example.com`) and **OpenMetadata Personal Access Token** (from `<OM-server>/users/<username>/access-token`). Requires Node/`npx` (the connection uses the `mcp-remote` proxy). Leave the URL empty to skip — the knowledge repo `schema.md` stays primary. See the README "OpenMetadata" section for full steps. When configured, the `semantic_search` (meaning-based table discovery), `search_metadata` (keyword lookup), and `get_entity_details` tools activate.
+
 ## Phase 2.5: Knowledge Repository
 
 **REQUIRED — always ask this, even if `.knowledge/` already exists.** This configures the MCP knowledge server that agents use for term lookups. Present the three options clearly:
 
 "Now let's set up your knowledge base — this is where schema docs, metric definitions, and data quirks live. You have three options:
 
-1. **GitHub repo** — shared with your team, version-controlled, team-editable (e.g., a data-knowledge repo in your org)
+1. **GitHub repo** — shared with your team, version-controlled, team-editable (e.g., a data-knowledge repo in your traya)
 2. **Local directory** — just for you, useful for testing or personal use
 3. **Skip** — use the plugin's built-in files (what we're doing now)
 
@@ -181,7 +191,7 @@ Which would you prefer?"
 
 ### Option 1: GitHub Repo
 
-  1. Ask for the repo URL: "Paste the GitHub repo URL — SSH (`git@github.com:org/repo.git`) or HTTPS (`https://github.com/org/repo.git`) both work."
+  1. Ask for the repo URL: "Paste the GitHub repo URL — SSH (`git@github.com:traya/repo.git`) or HTTPS (`https://github.com/traya/repo.git`) both work."
   2. Ask for branch (default: `main`).
   3. Validate access:
      ```bash

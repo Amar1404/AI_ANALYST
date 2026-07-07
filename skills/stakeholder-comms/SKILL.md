@@ -9,6 +9,10 @@ description: >
 
 # Skill: Stakeholder Communication Matrix
 
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
+
 ## Purpose
 Adapt analytical findings to the audience — same insight, different framing, detail level, and format depending on who will read it. Ensures that executives get the bottom line, PMs get the implications, engineers get the specifics, and data teams get the methodology.
 

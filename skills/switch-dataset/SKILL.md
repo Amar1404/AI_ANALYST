@@ -8,6 +8,10 @@ description: >
 
 # Skill: Switch Dataset
 
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
+
 ## Purpose
 Change the active dataset. Updates the active pointer, validates the target dataset exists, and confirms with a summary of what's now active.
 

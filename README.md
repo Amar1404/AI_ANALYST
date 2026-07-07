@@ -74,7 +74,7 @@ Query AWS Athena tables directly from any Claude conversation.
 3. Find **AI Analyst Plugin** in the installed list → click the **⚙ Configure** button next to it
 4. Scroll to the **Athena** section. Fill in each field:
    - **AWS Profile** → paste the profile name from your `~/.aws/credentials` file (e.g., `default` or `org-prod`)
-   - **Athena Database** → the default database queries should target (e.g., `orgprod`)
+   - **Athena Database** → the default database queries should target (e.g., `default`)
    - **Athena S3 Staging** → the full `s3://...` path where Athena writes query results. Must end with `/`
    - **Athena Region** → AWS region of your Athena workgroup (e.g., `ap-south-1`)
    - **Athena Workgroup** → workgroup name (use `primary` if unsure)
@@ -114,10 +114,38 @@ Connect to a Superset instance to read dashboards, charts, and run SQL via the S
    - **Superset Username / Password** → leave empty if using API key; otherwise enter DB-auth credentials
    - **Superset Auth Provider** → `db` for API key or DB auth; `ldap` or `oauth` if your instance uses those
    - **Superset Database ID** → the numeric ID from step 2
-   - **Superset Schema** → default schema name (e.g., `orgprod`)
+   - **Superset Schema** → default schema name (e.g., `default`)
 5. Click **Save**, then **restart Claude Desktop**
 
 **Start it:** Leave `Superset URL` empty to skip this integration entirely. Otherwise, the `superset` MCP tools activate on plugin load — ask *"list superset dashboards"* or *"run this query against superset"* to use them.
+
+### OpenMetadata (Live Schema & Descriptions) — optional
+
+When configured, OpenMetadata becomes the **preferred live source** for table/column schema and descriptions: schema and description changes made in OpenMetadata show up immediately, with no manual edits to the knowledge repo. The knowledge repo's `schema.md` remains the offline fallback. Quirks, metric definitions, golden queries, and PII/partition guardrails **always** come from the Knowledge Repo — OpenMetadata does not replace those.
+
+This connects to OpenMetadata's own built-in MCP server (v1.12+), so there is nothing to run locally beyond a small proxy.
+
+**Prerequisite:** **Node / `npx` must be installed.** The connection uses the `mcp-remote` proxy, which is fetched automatically on first run via `npx -y`. (The other integrations are pure Python; this one needs Node.)
+
+**Required settings:**
+
+| Field | Example | Description |
+|---|---|---|
+| `OpenMetadata URL` | `https://openmetadata.example.com` | Base URL of your OpenMetadata instance (no trailing slash; `/mcp` is appended automatically) |
+| `OpenMetadata Personal Access Token` | `eyJ...` | PAT from your OpenMetadata profile |
+
+**How to configure (step-by-step):**
+
+1. **(One-time) Generate a Personal Access Token:**
+   - Visit `<YOUR-OpenMetadata-SERVER>/users/<YOUR-USERNAME>/access-token` in your browser
+   - Click **Generate New Token** and copy it
+2. Open **Claude Desktop** → **Settings** → **Plugins** → **AI Analyst Plugin** → **⚙ Configure**
+3. Scroll to the **OpenMetadata** section. Fill in:
+   - **OpenMetadata URL** → full base URL, no trailing slash (e.g., `https://openmetadata.example.com`)
+   - **OpenMetadata Personal Access Token** → paste the token from step 1
+4. Click **Save**, then **restart Claude Desktop**
+
+**Start it:** Leave `OpenMetadata URL` empty to skip this integration entirely — the Knowledge Repo `schema.md` stays the primary schema source. Otherwise, the `semantic_search` (meaning-based table discovery), `search_metadata` (keyword lookup), and `get_entity_details` tools activate on plugin load and become the preferred schema source automatically.
 
 ### Knowledge Repo (Business Context)
 
@@ -131,7 +159,7 @@ A GitHub-backed (or local) knowledge base of dataset schemas, metric definitions
 | `Knowledge Repo Branch` | `main` | Branch to track |
 | `Knowledge GitHub Token` | `ghp_...` | Required only for **private** repos |
 | `Knowledge Local Path` | `/Users/me/knowledge-repo` | Use a local directory instead of GitHub |
-| `Knowledge Datasets` | `org-health` | Comma-separated dataset IDs (auto-discovered if blank) |
+| `Knowledge Datasets` | `org` | Comma-separated dataset IDs (auto-discovered if blank) |
 
 **Expected repo layout:**
 
@@ -161,7 +189,7 @@ Pick **one** source — GitHub-backed (recommended for teams) or local (for test
    - **Knowledge Repo URL** → full HTTPS or SSH URL (e.g., `https://github.com/test/knowledge-repo`)
    - **Knowledge Repo Branch** → branch name (defaults to `main`)
    - **Knowledge GitHub Token** → paste the `ghp_...` token (private repos only; leave empty for public)
-   - **Knowledge Datasets** → comma-separated dataset folder names (e.g., `org-health`). Leave empty to auto-discover all `datasets/*/` folders.
+   - **Knowledge Datasets** → comma-separated dataset folder names (e.g., `traya-health`). Leave empty to auto-discover all `datasets/*/` folders.
    - **Knowledge Local Path** → **leave empty**
 4. Click **Save**, then **restart Claude Desktop**
 

@@ -8,6 +8,10 @@ description: >
 
 # Skill: Refresh Dataset
 
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
+
 ## Purpose
 Rebuild the knowledge index so that recent edits to schema, quirks, metrics, or glossary files are picked up without restarting the server.
 
