@@ -189,7 +189,7 @@ Pick **one** source — GitHub-backed (recommended for teams) or local (for test
    - **Knowledge Repo URL** → full HTTPS or SSH URL (e.g., `https://github.com/test/knowledge-repo`)
    - **Knowledge Repo Branch** → branch name (defaults to `main`)
    - **Knowledge GitHub Token** → paste the `ghp_...` token (private repos only; leave empty for public)
-   - **Knowledge Datasets** → comma-separated dataset folder names (e.g., `traya-health`). Leave empty to auto-discover all `datasets/*/` folders.
+   - **Knowledge Datasets** → comma-separated dataset folder names (e.g., `org_name`). Leave empty to auto-discover all `datasets/*/` folders.
    - **Knowledge Local Path** → **leave empty**
 4. Click **Save**, then **restart Claude Desktop**
 

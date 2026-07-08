@@ -38,7 +38,7 @@ npm --version
 If npm is not found:
 ```
 npm is not available on this system. To use Marp, you need Node.js and npm installed.
-Visit https://nodejs.traya/ to download and install Node.js (which includes npm).
+Visit https://nodejs.org/ to download and install Node.js (which includes npm).
 After installation, run `/install-marp` again.
 ```
 

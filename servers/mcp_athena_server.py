@@ -46,7 +46,7 @@ def _load_athena_config() -> dict:
         return json.loads(Path(config_path).read_text())
     return {
         "database": os.environ.get("ATHENA_DATABASE", "default"),
-        "s3_staging_dir": os.environ.get("ATHENA_S3_STAGING", "s3://traya-athena-bucket/jupyter-query/"),
+        "s3_staging_dir": os.environ.get("ATHENA_S3_STAGING", "s3://org-dp-prod/athena-output/"),
         "region_name": os.environ.get("ATHENA_REGION", "ap-south-1"),
         "work_group": os.environ.get("ATHENA_WORKGROUP", "jupyter"),
         "profile_name": os.environ.get("AWS_PROFILE", "prod"),

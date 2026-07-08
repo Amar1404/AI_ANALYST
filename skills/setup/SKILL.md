@@ -119,7 +119,7 @@ Three auth options:
    - Superset URL: `http://localhost:8088` (or your instance URL)
    - Superset API Key: `sst_...`
    - Superset Database ID: (find via Superset → Data → Databases, use the ID number)
-   - Superset Schema: `trayaprod` (or your default schema)
+   - Superset Schema: `orgprod` (or your default schema)
 
 **Option B: Username/Password** — for DB auth or LDAP.
 1. Fill in plugin config:
@@ -183,7 +183,7 @@ To enable: in plugin config, set **OpenMetadata URL** (e.g. `https://openmetadat
 
 "Now let's set up your knowledge base — this is where schema docs, metric definitions, and data quirks live. You have three options:
 
-1. **GitHub repo** — shared with your team, version-controlled, team-editable (e.g., a data-knowledge repo in your traya)
+1. **GitHub repo** — shared with your team, version-controlled, team-editable (e.g., a data-knowledge repo in your org)
 2. **Local directory** — just for you, useful for testing or personal use
 3. **Skip** — use the plugin's built-in files (what we're doing now)
 
@@ -191,7 +191,7 @@ Which would you prefer?"
 
 ### Option 1: GitHub Repo
 
-  1. Ask for the repo URL: "Paste the GitHub repo URL — SSH (`git@github.com:traya/repo.git`) or HTTPS (`https://github.com/traya/repo.git`) both work."
+  1. Ask for the repo URL: "Paste the GitHub repo URL — SSH (`git@github.com:org/repo.git`) or HTTPS (`https://github.com/org/repo.git`) both work."
   2. Ask for branch (default: `main`).
   3. Validate access:
      ```bash
