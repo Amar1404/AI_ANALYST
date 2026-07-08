@@ -208,10 +208,10 @@ def build_index(repo_dir: Path | str, dataset_id: str) -> dict:
                 )
 
     # --- Glossary (from organizations/) ---
-    trayas_dir = repo_dir / "organizations"
-    if trayas_dir.is_dir():
-        for traya_dir in sorted(trayas_dir.iterdir()):
-            glossary_path = traya_dir / "business" / "glossary" / "terms.yaml"
+    orgs_dir = repo_dir / "organizations"
+    if orgs_dir.is_dir():
+        for org_dir in sorted(orgs_dir.iterdir()):
+            glossary_path = org_dir / "business" / "glossary" / "terms.yaml"
             if glossary_path.exists():
                 rel_path = "glossary/terms.yaml"
                 for term_entry in extract_yaml_terms(glossary_path, kind="glossary"):
