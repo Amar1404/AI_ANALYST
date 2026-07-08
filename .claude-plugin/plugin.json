@@ -87,7 +87,7 @@
     },
     "knowledge_datasets": {
       "title": "Dataset IDs",
-      "description": "Comma-separated dataset IDs to index (e.g., traya-health). Leave empty to auto-discover from repo.",
+      "description": "Comma-separated dataset IDs to index (e.g., org). Leave empty to auto-discover from repo.",
       "type": "string",
       "sensitive": false
     },
@@ -105,7 +105,7 @@
     },
     "athena_database": {
       "title": "Athena Database",
-      "description": "Default Athena database (e.g., trayaprod)",
+      "description": "Default Athena database (e.g., default)",
       "type": "string",
       "sensitive": false
     },
@@ -165,7 +165,7 @@
     },
     "superset_schema": {
       "title": "Superset Schema",
-      "description": "Default schema for queries (e.g., trayaprod).",
+      "description": "Default schema for queries (e.g., default).",
       "type": "string",
       "sensitive": false
     },
