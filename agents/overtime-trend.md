@@ -103,6 +103,7 @@ Connect to {{DATASET}} and prepare the data for time-series analysis:
 - For each column in {{METRIC_COLUMNS}}, verify it is numeric or can be aggregated (count, sum, mean)
 - Check for nulls, negative values, and extreme outliers in each metric column
 - Note any data quality issues that would affect trend interpretation
+- When {{DATA_INVENTORY}} or an upstream profile already covers these columns (1a and 1b), reuse its findings and skip re-validating against the source
 
 **1c. Determine granularity:**
 - If {{GRANULARITY}} is provided, use it
@@ -118,20 +119,23 @@ Write and execute SQL or Python to aggregate {{METRIC_COLUMNS}} at the selected 
 - For count metrics: SUM per period
 - For rate metrics: recompute the rate per period (numerator / denominator), do NOT average rates
 - For average metrics: compute weighted average where possible
-- If {{SEGMENTS}} is provided, aggregate per segment per period
+- If {{SEGMENTS}} is provided, aggregate per segment per period — total and per-segment aggregation is ONE query using `GROUP BY GROUPING SETS ((period, segment), (period))`, not separate queries for the total and for each segment
 
 ```python
 # Example: Monthly aggregation of revenue and active_users
 # Group by month (from TIME_COLUMN)
 # revenue: SUM per month
 # active_users: COUNT DISTINCT per month
-# If segmented by platform: group by (month, platform)
+# If segmented by platform: GROUPING SETS ((month, platform), (month))
+#   → per-segment rows AND total rows in a single query
 ```
 
 Save the prepared time-series dataset to `working/timeseries_prepared.csv`.
 
+**From this point on, the source is done.** Everything from Step 2 onward computes from `working/timeseries_prepared.csv` in memory (pandas / window functions). Do NOT query the source again after Step 1 unless a data gap is discovered that the prepared CSV cannot answer.
+
 ### Step 2: Compute Period-over-Period Changes
-For each metric in {{METRIC_COLUMNS}}, compute:
+All comparisons in this step (PoP, MoM, QoQ, YoY, rolling averages, cumulative totals) are derivable in one pass over the prepared CSV using shifts and rolling windows — never run one source query per comparison. For each metric in {{METRIC_COLUMNS}}, compute:
 
 **2a. Absolute and relative changes:**
 - Period-over-period change (e.g., MoM if monthly): current - previous

@@ -191,6 +191,32 @@ def _get_index(dataset_id: str) -> dict:
     return _index_cache.get(dataset_id, {"mandatory": [], "terms": {}})
 
 
+def _match_table_section(requested: str, sections: dict[str, str]) -> str | None:
+    """Resolve a requested table name to a section heading key.
+
+    Matching rules, in order:
+      1. Exact match on a heading key.
+      2. Match by short table name (the part after the last ".").
+    Both passes are case-insensitive on the table name. Returns the matching
+    heading key, or None if nothing matched.
+    """
+    # 1. Exact heading match (case-insensitive).
+    for heading in sections:
+        if heading.lower() == requested.lower():
+            return heading
+
+    # 2. Short-name match: a requested "orders" matches heading
+    #    "analytics.orders"; a requested FQN also resolves by its
+    #    own short name against a heading's short name.
+    requested_short = requested.rsplit(".", 1)[-1].lower()
+    for heading in sections:
+        heading_short = heading.rsplit(".", 1)[-1].lower()
+        if heading_short == requested_short:
+            return heading
+
+    return None
+
+
 # ---------------------------------------------------------------------------
 # MCP Tools
 # ---------------------------------------------------------------------------
@@ -206,7 +232,7 @@ def lookup_index(terms: list[str], dataset: str) -> str:
     Args:
         terms: List of terms to look up (table names, metric names, business
                terms like "O2", "retention", "channel").
-        dataset: Dataset identifier (e.g., "org-health").
+        dataset: Dataset identifier (e.g., "default").
 
     Returns:
         JSON with mandatory pages and matching term entries.
@@ -235,19 +261,38 @@ def lookup_index(terms: list[str], dataset: str) -> str:
 
 
 @mcp.tool()
-def get_page(file: str, dataset: str, section: str = "") -> str:
-    """Fetch the full content of a knowledge page or a specific section within it.
+def get_page(
+    file: str,
+    dataset: str,
+    section: str = "",
+    tables: list[str] | None = None,
+) -> str:
+    """Fetch a knowledge page, a single section, or only specific table sections.
     Call after lookup_index to retrieve details for the sections you need.
+
+    For a large schema-style file (schema.md, whose H2 headings are
+    fully-qualified table names like "analytics.orders"), pass
+    `tables` to fetch ONLY those tables' sections instead of the whole file.
+    This keeps the other ~140 tables out of context while returning the
+    requested tables' schema text verbatim.
 
     Args:
         file: Relative file path within the dataset (e.g., "quirks.md",
               "metrics/retention.yaml", "schema.md").
-        dataset: Dataset identifier (e.g., "org-health").
-        section: Optional section heading to extract. If empty, returns
-                 the full file content.
+        dataset: Dataset identifier (e.g., "default").
+        section: Optional single section heading to extract. If empty (and no
+                 `tables`), returns the full file content.
+        tables: Optional list of table names. When provided and non-empty,
+                returns only the matching table sections from a schema-style
+                markdown file, each with its "## <heading>" line restored.
+                Names match by exact heading or by short name (the part after
+                the last "."), case-insensitively. Takes precedence over
+                `section`.
 
     Returns:
-        The content of the file or section as a string.
+        The content of the file, the section, or the matched table sections as
+        a string. For `tables`, partial misses append a NOT FOUND note; a total
+        miss returns a JSON error string.
     """
     repo_path = _ensure_repo()
     file_path = repo_path / "datasets" / dataset / file
@@ -264,6 +309,34 @@ def get_page(file: str, dataset: str, section: str = "") -> str:
 
     if not file_path.exists():
         return json.dumps({"error": f"File not found: {file}"})
+
+    # Per-table slicing takes precedence over a single-section request.
+    if tables:
+        sections = extract_markdown_sections(file_path)
+        rendered: list[str] = []
+        matched_headings: set[str] = set()
+        unmatched: list[str] = []
+
+        for requested in tables:
+            heading = _match_table_section(requested, sections)
+            if heading is None:
+                unmatched.append(requested)
+            elif heading not in matched_headings:
+                matched_headings.add(heading)
+                rendered.append(f"## {heading}\n\n{sections[heading]}")
+
+        if not rendered:
+            available = list(sections.keys())[:10]
+            return json.dumps({
+                "error": f"No matching tables in {file}",
+                "requested": list(tables),
+                "available_sample": available,
+            })
+
+        output = "\n\n".join(rendered)
+        if unmatched:
+            output += f"\n\n> NOT FOUND in {file}: " + ", ".join(unmatched)
+        return output
 
     content = file_path.read_text(encoding="utf-8")
 
@@ -301,7 +374,7 @@ def get_quirks(dataset: str) -> str:
     of rules rather than specific sections.
 
     Args:
-        dataset: Dataset identifier (e.g., "org-health").
+        dataset: Dataset identifier (e.g., "default").
 
     Returns:
         Full content of quirks.md.

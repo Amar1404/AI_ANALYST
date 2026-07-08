@@ -9,6 +9,10 @@ description: >
 
 # Skill: Business Context Browser
 
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
+
 > Interactive browser for your organization's knowledge system. Explore terms,
 > products, metrics, objectives, and team structure. Also optionally crawl Notion
 > workspaces to extract and populate business context.
@@ -17,7 +21,7 @@ description: >
 Invoked as `/business` or `/business {subcommand}` or `/notion-ingest`
 
 ## Prerequisites
-- Organization context must exist at `<workspace>/knowledge/organizations/{org}/`
+- organization context must exist at `<workspace>/knowledge/organizations/{org}/`
 - Read `<workspace>/knowledge/setup-state.yaml` to find active organization
 - If no org configured: "No organization context found. Run `/setup` Phase 3 to configure business context, or create one manually at `<workspace>/knowledge/organizations/{name}/`."
 

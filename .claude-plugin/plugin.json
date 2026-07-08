@@ -16,7 +16,8 @@
     "question",
     "query"
   ],
-  "mcpServers": {
+  "_mcpServers_disabled": {
+    "_comment": "Moved to root .mcp.json so the Cowork uploader's remote-only filter does not reject these stdio servers. Rename this key back to 'mcpServers' to re-enable the inline declaration.",
     "knowledge": {
       "command": "python3",
       "args": ["${CLAUDE_PLUGIN_ROOT}/servers/mcp_knowledge_server.py"],
@@ -52,6 +53,17 @@
         "SUPERSET_DATABASE_ID": "${user_config.superset_database_id}",
         "SUPERSET_SCHEMA": "${user_config.superset_schema}"
       }
+    },
+    "openmetadata": {
+      "command": "npx",
+      "args": [
+        "-y", "mcp-remote",
+        "${user_config.openmetadata_url}/mcp",
+        "--header", "Authorization:${OM_AUTH_HEADER}"
+      ],
+      "env": {
+        "OM_AUTH_HEADER": "Bearer ${user_config.openmetadata_pat}"
+      }
     }
   },
   "userConfig": {
@@ -75,7 +87,7 @@
     },
     "knowledge_datasets": {
       "title": "Dataset IDs",
-      "description": "Comma-separated dataset IDs to index (e.g., org-health). Leave empty to auto-discover from repo.",
+      "description": "Comma-separated dataset IDs to index (e.g., org). Leave empty to auto-discover from repo.",
       "type": "string",
       "sensitive": false
     },
@@ -93,7 +105,7 @@
     },
     "athena_database": {
       "title": "Athena Database",
-      "description": "Default Athena database (e.g., orgprod)",
+      "description": "Default Athena database (e.g., default)",
       "type": "string",
       "sensitive": false
     },
@@ -153,9 +165,21 @@
     },
     "superset_schema": {
       "title": "Superset Schema",
-      "description": "Default schema for queries (e.g., orgprod).",
+      "description": "Default schema for queries (e.g., default).",
       "type": "string",
       "sensitive": false
+    },
+    "openmetadata_url": {
+      "title": "OpenMetadata URL",
+      "description": "OpenMetadata server URL (e.g., https://openmetadata.example.com). Leave empty to skip OpenMetadata and use the knowledge repo schema.",
+      "type": "string",
+      "sensitive": false
+    },
+    "openmetadata_pat": {
+      "title": "OpenMetadata Personal Access Token",
+      "description": "PAT from <OM-server>/users/<username>/access-token. Required if OpenMetadata URL is set.",
+      "type": "string",
+      "sensitive": true
     }
   }
 }

@@ -9,6 +9,10 @@ description: >
 
 # Skill: Data Profiling
 
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
+
 ## Purpose
 Deep-profile the active dataset to understand schema structure, value distributions, temporal patterns, correlations, completeness gaps, and anomalies. Produces a comprehensive profile report that serves as the foundation for analysis planning and data quality assessment.
 
@@ -19,6 +23,15 @@ Deep-profile the active dataset to understand schema structure, value distributi
 - When the existing profile is stale (check `last_profiled` in manifest.yaml)
 
 ## Instructions
+
+### Step 0: Check for an Existing Profile
+
+Before profiling anything, check `.knowledge/datasets/{active}/last_profile.md` and
+`last_profiled` in manifest.yaml. If a profile exists and is fresh (data hasn't been
+refreshed since), report from it instead of re-profiling. If it's stale, scope the re-run:
+profile only the tables that changed or that the user asked about, and carry the rest
+forward from the existing report. Run the full unconditional profile only on a first run
+or an explicit "re-profile everything."
 
 ### Step 1: Connect and Profile Schema
 
@@ -69,12 +82,16 @@ for table_info in schema["tables"]:
         temporal = profile_temporal_patterns(df, primary_date, freq="D")
 ```
 
-**Important:** For large tables (>50K rows), `profile_source()` already samples. But `read_table()` loads the full CSV. If a table has >100K rows, sample before running deep profiling:
+**Important:** For large tables (>50K rows), `profile_source()` already samples. But `read_table()` loads the full CSV. If a table has >50K rows, sample before running deep profiling:
 
 ```python
-if len(df) > 100_000:
-    df = df.sample(n=100_000, random_state=42)
+if len(df) > 50_000:
+    df = df.sample(n=50_000, random_state=42)
 ```
+
+Load each table **once** — run distributions, completeness, temporal (and Step 3's
+correlations/anomalies, for key tables) on the same `df` in the same loop iteration.
+Never `read_table()` the same table a second time in a later step.
 
 ### Step 3: Correlation and Anomaly Analysis on Key Tables
 

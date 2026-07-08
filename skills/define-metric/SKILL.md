@@ -9,6 +9,10 @@ description: >
 
 # Skill: Metric Spec
 
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
+
 ## Purpose
 Define any metric clearly and completely using a standardized template so there is no ambiguity about what is being measured, how it's calculated, or how to interpret it.
 

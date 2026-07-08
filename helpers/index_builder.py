@@ -179,7 +179,7 @@ def build_index(repo_dir: Path | str, dataset_id: str) -> dict:
                 for ref in re.findall(r"`([a-zA-Z_][a-zA-Z0-9_.]*)`", content):
                     _add_term(ref, "quirks.md", heading, f"See {heading}")
 
-    # --- Schema sections (table names only, not columns) ---
+    # --- Schema sections (table names and their columns) ---
     schema_path = ds_dir / "schema.md"
     if schema_path.exists():
         for heading, content in extract_markdown_sections(schema_path).items():
@@ -189,6 +189,10 @@ def build_index(repo_dir: Path | str, dataset_id: str) -> dict:
             if "." in heading:
                 short_name = heading.split(".")[-1]
                 _add_term(short_name, "schema.md", heading, ctx)
+            # Index column names so column-level questions resolve from the
+            # catalog instead of falling back to live Athena discovery.
+            for col in _extract_column_names(content):
+                _add_term(col, "schema.md", heading, f"column of {heading}")
 
     # --- Metrics ---
     metrics_dir = ds_dir / "metrics"

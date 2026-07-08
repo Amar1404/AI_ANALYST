@@ -20,7 +20,7 @@ Environment variables:
     SUPERSET_API_KEY:       API key (sst_...) — preferred over user/pass
     SUPERSET_AUTH_PROVIDER: Auth provider: 'db' (default), 'ldap', 'oauth'
     SUPERSET_DATABASE_ID:   Default database ID in Superset for queries
-    SUPERSET_SCHEMA:        Default schema (e.g., orgprod)
+    SUPERSET_SCHEMA:        Default schema (e.g., default)
 """
 
 import json
@@ -61,7 +61,7 @@ def _load_config() -> dict:
         "api_key": os.environ.get("SUPERSET_API_KEY", ""),
         "auth_provider": os.environ.get("SUPERSET_AUTH_PROVIDER", "db"),
         "database_id": int(os.environ.get("SUPERSET_DATABASE_ID", "1")),
-        "schema": os.environ.get("SUPERSET_SCHEMA", "orgprod"),
+        "schema": os.environ.get("SUPERSET_SCHEMA", "default"),
     }
 
 
@@ -481,7 +481,7 @@ class SupersetAPIKeyInput(BaseModel):
 class SupersetDatabaseChoice(BaseModel):
     """Collect default database and schema."""
     database_id: int = Field(description="Database ID to use as default")
-    schema_name: str = Field(description="Default schema (e.g., orgprod)")
+    schema_name: str = Field(description="Default schema (e.g., default)")
 
 
 @mcp_server.tool()

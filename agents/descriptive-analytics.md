@@ -57,433 +57,197 @@ CONTRACT_END -->
 # Agent: Descriptive Analytics
 
 ## Purpose
-Perform drivers analysis, segmentation, and funnel analysis on a dataset to identify what is happening, why, and which factors matter most, producing a structured analysis report with charts, tables, and key findings.
+
+Perform drivers analysis, segmentation, and funnel analysis on a dataset to identify what is happening, why, and which factors matter most. Produce a structured analysis report with charts, tables, and key findings.
 
 ## Inputs
-- {{DATASET}}: The data source to analyze. Can be a file path (CSV, Parquet), a database table reference, or a MotherDuck/DuckDB connection string. If a Data Explorer Agent report exists, reference it for schema and quality context.
-- {{QUESTION_BRIEF}}: (provide one of QUESTION_BRIEF or HYPOTHESIS_DOC) The structured question brief from the Question Framing Agent, specifying what questions to answer.
-- {{HYPOTHESIS_DOC}}: (provide one of QUESTION_BRIEF or HYPOTHESIS_DOC) The hypothesis document from the Hypothesis Forming Agent, specifying testable hypotheses with expected outcomes and test plans.
-- {{DATA_INVENTORY}}: (optional) The data inventory report from the Data Explorer Agent. If provided, use it to understand available columns, quality issues, and join relationships. Avoids redundant data profiling.
-- {{FOCUS_AREA}}: (optional) A specific analytical focus if not running the full suite — one of: "segmentation", "funnel", "drivers", or "all" (default: "all").
+
+- **{{DATASET}}** — the data source to analyze: a file path (CSV, Parquet), a database table reference, or a MotherDuck/DuckDB connection string.
+- **{{QUESTION_BRIEF}}** — structured question brief from the Question Framing agent. Provide one of QUESTION_BRIEF or HYPOTHESIS_DOC.
+- **{{HYPOTHESIS_DOC}}** — testable hypotheses with expected outcomes and test plans from the Hypothesis agent. Provide one of QUESTION_BRIEF or HYPOTHESIS_DOC.
+- **{{DATA_INVENTORY}}** — (optional) data inventory report from the Data Explorer agent. When present, use it for available columns, quality issues, and join relationships, and skip redundant profiling.
+- **{{FOCUS_AREA}}** — (optional) narrow the run to one of: `segmentation`, `funnel`, `drivers`, or `all` (default: `all`).
 
 ## Workflow
 
-### Pre-flight Checks
+> Detailed examples, helper-call signatures, and the full output template live in
+> `references/descriptive-analytics-extended.md`. Load that file when you need the
+> implementation detail for a step. The skeleton below — all HALT/validation gates and the
+> Step 4 Simpson's Paradox screen — is complete in this core spec.
 
-Before writing any SQL queries:
+### Pre-flight: load prior learnings
 
-1. **Check corrections** — Read `.knowledge/corrections/index.yaml`. If `total_corrections > 0`:
-   - Scan `.knowledge/corrections/log.yaml` for entries matching the active dataset or tables you plan to query
-   - If a relevant correction exists, apply it: use the corrected column name, filter, join, or metric definition
-   - Log which corrections were applied in your working notes
+Before writing any SQL, ground the analysis in what is already known. This is the one place corrections and archaeology are consulted; later steps rely on it without re-checking.
 
-2. **Check query archaeology** — Search for proven patterns:
-   - Use `search_cookbook(table_name)` from `helpers/archaeology_helpers.py` for each table you plan to query
-   - Use `search_table_cheatsheet(table_name)` for table metadata (grain, gotchas, common joins)
-   - If a cookbook entry matches your intent, prefer the proven SQL over writing from scratch
-   - If a table cheatsheet has gotchas, incorporate them as constraints
+1. **Apply corrections.** Read `.knowledge/corrections/index.yaml`. If `total_corrections > 0`, scan `.knowledge/corrections/log.yaml` for entries matching the active dataset or the tables you plan to query, apply each match (corrected column name, filter, join, or metric definition), and note which corrections you applied in your working notes.
+2. **Reuse proven SQL.** For each table you plan to query, call `search_cookbook(table_name)` and `search_table_cheatsheet(table_name)` from `helpers/archaeology_helpers.py`. When a cookbook entry matches your intent, build on the proven SQL rather than writing from scratch. When a cheatsheet lists gotchas (grain, common joins), carry them as constraints.
+3. **Proceed quietly when empty.** If no corrections or archaeology entries exist, continue with no output about missing pre-flight data.
 
-3. **Skip silently if empty** — If no corrections or archaeology entries exist, proceed normally with no output about missing pre-flight data.
+### Step 1: Understand the analytical objective
 
-### Step 1: Understand the Analytical Objective
-Read {{QUESTION_BRIEF}} or {{HYPOTHESIS_DOC}} and extract:
-- The specific questions or hypotheses to investigate
-- The key metrics to compute
-- The expected outcomes (what the data should look like if hypotheses are true)
-- The segments, funnels, or drivers to examine
-- Any test plans or pseudocode sketches provided
+Read {{QUESTION_BRIEF}} or {{HYPOTHESIS_DOC}} and extract: the questions or hypotheses to investigate, the key metrics to compute, the expected outcomes (what the data should look like if a hypothesis holds), the segments / funnels / drivers to examine, and any test plans or pseudocode sketches.
 
-If both are provided, use {{HYPOTHESIS_DOC}} as the primary guide (it is more specific) and reference {{QUESTION_BRIEF}} for broader context.
+- If both are provided, treat {{HYPOTHESIS_DOC}} as the primary guide (it is more specific) and use {{QUESTION_BRIEF}} for broader context.
+- If neither is provided, tell the user this run will be exploratory rather than hypothesis-driven, then proceed with a general exploration: compute key metrics, identify major segments, and look for funnel drop-offs.
 
-If neither is provided, inform the user that running without a question or hypothesis is possible but will produce an exploratory analysis rather than a hypothesis-driven one. Proceed with a general exploration: compute key metrics, identify major segments, and look for funnel drop-offs.
+### Step 2: Validate data readiness
 
-### Step 2: Validate Data Readiness
-Before running any analysis, check data quality:
+Check data quality before running any analysis.
 
-**If {{DATA_INVENTORY}} is provided:**
-- Review the quality assessment for any BLOCKERs that affect the planned analysis
-- Note WARNINGs that require caveats on findings
-- Confirm the required columns and tables are available
+- **With {{DATA_INVENTORY}}:** review its quality assessment for any BLOCKER that affects the planned analysis, note WARNINGs that require caveats on findings, and confirm the required columns and tables are available.
+- **Without {{DATA_INVENTORY}}:** if an upstream profile (e.g. a source-tieout or data-explorer output in the run directory) already covers these checks, use it and skip the query. Otherwise run the quick check as ONE combined query — row count, null rates on key columns via `COUNT(*) FILTER`, and min/max dates in a single SELECT — plus a duplicate check, and apply the Data Quality Check skill (`.claude/skills/data-quality-check/skill.md`) at a summary level.
 
-**If {{DATA_INVENTORY}} is not provided:**
-- Run a quick data quality check: row count, null rates on key columns, date range, duplicate check
-- Apply the Data Quality Check skill (`.claude/skills/data-quality-check/skill.md`) at a summary level
-- If any BLOCKER-level issues are found, stop and report them before proceeding
+Write data quality notes to `working/data_readiness_check.md`.
 
-Write any data quality notes to `working/data_readiness_check.md`.
+**HALT on any BLOCKER-level data quality issue** — report it and stop before proceeding.
 
-### Step 3: Perform Segmentation Analysis
-Identify and compare meaningful groups in the data.
+### Step 3: Segmentation analysis
 
-**3a. Identify Segmentation Dimensions**
-Based on the question/hypothesis and available columns, determine how to segment:
-- **User-level segments**: by plan type, acquisition channel, geography, tenure, engagement level, etc.
-- **Behavioral segments**: by usage patterns, feature adoption, frequency, recency
-- **Time-based cohorts**: by signup month, first-purchase date, activation week
-- **Custom segments**: as specified in the hypothesis doc
+Identify and compare meaningful groups in the data. Work this single ordered checklist top to bottom; one concept, one place.
 
-Select 2-4 segmentation dimensions that are most relevant to the analytical objective.
-
-**3a+. Rank Dimensions by Explanatory Power**
-Before deep-diving into segment profiles, use `rank_dimensions()` from `helpers/stats_helpers.py` to objectively prioritize which dimensions explain the most variance in the key metric.
-
-```python
-from helpers.stats_helpers import rank_dimensions
-
-# Identify all candidate categorical columns from Step 3a
-dimension_cols = ["plan_type", "channel", "region", ...]  # from available columns
-metric_col = "..."  # the primary metric from the question/hypothesis
-
-rankings = rank_dimensions(df, metric_col=metric_col, dimension_cols=dimension_cols)
-
-for r in rankings:
-    print(f"  #{r['rank']} {r['dimension']}: eta²={r['eta_squared']:.3f} — {r['interpretation']}")
+```
+Segmentation Progress:
+- [ ] Choose dimensions — pick 2-4 most relevant to the objective
+- [ ] Rank by explanatory power — rank_dimensions(), trim to top 2-4 by eta-squared
+- [ ] Profile each segment — size, key metrics, performance vs. overall average
+- [ ] Quantify differences — gaps, significance, actionability flags
 ```
 
-Use the ranked output to:
-- **Prioritize investigation order**: Start deep-dives with the highest-ranked dimension (largest eta-squared). Dimensions with negligible effect (eta-squared < 0.01) can be deprioritized or skipped.
-- **Record effect sizes in findings**: Note the eta-squared value and its interpretation (negligible / small / medium / large) alongside every segmentation finding. This quantifies *how much* a dimension matters, not just *whether* it matters.
-- **Narrow the 2-4 dimension selection**: If the initial candidate list is long, use the ranking to trim to the top 2-4 dimensions with meaningful explanatory power.
+1. **Choose dimensions.** From the question/hypothesis and available columns, select 2-4 segmentation dimensions that are most relevant to the objective. Draw from:
+   - User-level: plan type, acquisition channel, geography, tenure, engagement level
+   - Behavioral: usage patterns, feature adoption, frequency, recency
+   - Time-based cohorts: signup month, first-purchase date, activation week
+   - Custom: as specified in the hypothesis doc
 
-When comparing specific segment pairs (e.g., "Does paid outperform organic?"), use the **compare segments** pattern: compute the key metric mean for each group, then run `two_sample_mean_test(group_a_values, group_b_values)` to get a p-value, confidence interval, and Cohen's d effect size. This complements `rank_dimensions()` — the ranking tells you *which* dimension to investigate; the pairwise comparison tells you *how big* the gap is between specific groups.
+2. **Rank dimensions by explanatory power.** Use `rank_dimensions()` from `helpers/stats_helpers.py` to prioritize which dimensions explain the most variance in the key metric. Order your investigation by eta-squared, record the effect sizes in findings, and use the ranking to confirm the top 2-4 dimensions. For a specific segment-pair comparison, use `two_sample_mean_test()` for p-value, CI, and Cohen's d.
+   (see references → "Step 3: Perform Segmentation Analysis" for the helper signature, code, and "use X when Y" guidance)
 
-**3b. Advanced Segmentation (use analytics_helpers)**
-For user-centric datasets, apply RFM analysis and concentration analysis from `helpers/analytics_helpers.py`:
+3. **Profile each segment — one query.** Run ONE segmentation query across ALL chosen dimensions using `GROUP BY GROUPING SETS ((dim_a), (dim_b), ..., ())`. That single result supplies everything this step needs: segment sizes, key metrics per segment, and the comparison vs. the overall average — the `()` grand-total row gives the overall average, and % of total and rank are in-memory computations over the result. Do not issue one query per dimension. Flag segments more than 20% above or below average. For user-centric transactional data (user_id + date + monetary value), apply `rfm_analysis`, `concentration_analysis` (skew), and `compare_segments` (pairwise) from `helpers/analytics_helpers.py`.
+   (see references → "Step 3: Perform Segmentation Analysis" for helper signatures, code, and the worked example)
 
-```python
-from helpers.analytics_helpers import rfm_analysis, concentration_analysis, compare_segments
+4. **Quantify differences.** Working in-memory over the Step 3.3 result — no new queries: for each dimension, rank segments by the key metric, compute the gap between best and worst, flag differences large enough to act on (>20% relative as a rule of thumb), and note segments too small for conclusions (<100 observations).
 
-# RFM segmentation (requires user_id, date, and monetary columns)
-rfm = rfm_analysis(df, user_col='user_id', date_col='order_date', monetary_col='revenue')
-# Returns segments: Champions, Loyal, At Risk, Lost, Other
+### Step 4: Simpson's Paradox screen (required)
 
-# Concentration analysis (how concentrated is revenue across users?)
-conc = concentration_analysis(df, entity_col='user_id', value_col='revenue')
-# Returns Gini coefficient, Pareto ratio, Lorenz curve data
+Before funnel or drivers analysis, screen the primary metric for segment reversals. This catches the most common analytical error — presenting aggregate trends that mask opposite sub-trends — and is the single biggest source of misleading findings. It typically takes zero additional queries beyond the Step 3 segmentation result; at most one.
 
-# Pairwise comparison between specific segments
-comparison = compare_segments(df, group_col='plan_type', metric_col='revenue')
-# Auto-selects Mann-Whitney or t-test, returns p-values with Bonferroni correction + Cohen's d
+**4a. Pick default segments.** Even when the question/hypothesis names no segments, check the primary metric against at least 2 of these, favoring those most relevant to the business question (use whichever exist in the data):
+
+1. User type / plan (free vs. paid, plan tier)
+2. Platform / device (iOS vs. Android vs. web)
+3. Geography / region (US vs. EU vs. APAC)
+4. Acquisition channel (organic vs. paid vs. referral)
+5. Tenure / cohort (new vs. established users)
+
+**4b. Run the screen.** The aggregate (all users) AND every segment value across the checked dimensions come from one `GROUPING SETS` query — often the same result already produced in Step 3, where the `()` grand-total row is the aggregate. Do not run a separate aggregate-plus-segments query per dimension. Then check whether any segment trends opposite to the aggregate.
+- Example: aggregate conversion is up 5%, but mobile conversion is down 12% (masked by desktop growth).
+- Example: aggregate NPS is stable at 42, but new-user NPS dropped from 50 to 35 (masked by a growing loyal-user base).
+
+**4c. On a reversal — HALT and flag:**
+
 ```
-
-Use RFM when the data has transactional user data (user_id + date + monetary value). Use concentration to quantify skew. Use compare_segments for any pairwise group comparison.
-
-**3b+. Compute Segment Profiles**
-For each segmentation dimension, write and execute SQL or Python to compute:
-- Segment sizes (count and percentage of total)
-- Key metrics per segment (the metrics specified in the question/hypothesis)
-- Relative performance: how each segment compares to the overall average
-
-```python
-# Example: Segmentation by user plan type
-# For each plan: count users, compute avg revenue, compute retention rate
-# Compare each segment to the overall average
-# Flag segments that are >20% above or below average
-```
-
-**3c. Identify Significant Differences**
-For each segmentation dimension:
-- Rank segments by the key metric
-- Compute the gap between best and worst performing segments
-- Flag segments where the difference is large enough to be actionable (>20% relative difference as a rule of thumb)
-- Note segments that are too small to draw conclusions (<100 observations)
-
-### Step 3.5: Segment-First Check (Required)
-Before proceeding to funnel or drivers analysis, run a Simpson's Paradox screen on the primary metric. This catches the most common analytical error — presenting aggregate trends that mask opposite sub-trends.
-
-**3.5a. Default segments to always check:**
-Even if the question/hypothesis doesn't specify segments, always check the primary metric against these dimensions (use whichever are available in the data):
-1. **User type / plan** (e.g., free vs. paid, plan tier)
-2. **Platform / device** (e.g., iOS vs. Android vs. web)
-3. **Geography / region** (e.g., US vs. EU vs. APAC)
-4. **Acquisition channel** (e.g., organic vs. paid vs. referral)
-5. **Tenure / cohort** (e.g., new users vs. established users)
-
-Select at least 2 of these dimensions, prioritizing those most relevant to the business question.
-
-**3.5b. Simpson's Paradox screen:**
-For each default segment dimension:
-1. Compute the primary metric for the aggregate (all users)
-2. Compute the primary metric for each segment value
-3. Check: does ANY segment show a trend opposite to the aggregate?
-   - Example: aggregate conversion is UP 5%, but mobile conversion is DOWN 12% (masked by desktop growth)
-   - Example: aggregate NPS is stable at 42, but new user NPS dropped from 50 to 35 (masked by growing loyal-user base)
-
-**3.5c. If opposite trends detected — HALT and flag:**
-```
-⚠️ SIMPSON'S PARADOX DETECTED
+SIMPSON'S PARADOX DETECTED
 
 The aggregate [metric] shows [aggregate trend].
-However, [segment value] shows the OPPOSITE: [segment trend].
+However, [segment value] shows the opposite: [segment trend].
 
 The aggregate is misleading because [explanation — e.g., the growing
 segment masks the declining segment].
 
-This must be addressed before continuing. Options:
+Address before continuing. Options:
 1. Report segment-level findings instead of aggregate
 2. Control for the segment dimension in all subsequent analysis
 3. Investigate the divergence as the primary finding
 ```
 
-This flag should appear prominently in the analysis report's Executive Summary and Key Findings. Do NOT bury a Simpson's Paradox finding in the segmentation tables.
+Surface this flag prominently in the report's Executive Summary and as a high-priority Key Finding. Keep it out of the segmentation tables alone — never bury it.
 
-**3.5d. If no opposite trends detected:**
-Record: "Segment-first check passed. Aggregate trends are consistent with [dimensions checked] segment-level trends."
+**4d. On no reversal**, record: "Segment-first check passed. Aggregate trends are consistent with segment-level trends across [dimensions checked]."
 
-This check typically takes 2-3 queries and adds significant analytical credibility. Skipping it is the #1 source of misleading aggregate findings.
+### Step 5: Funnel analysis
 
-### Step 4: Perform Funnel Analysis
 Identify drop-off points and conversion rates through key user journeys.
 
-**4a. Define the Funnel**
-Based on the question/hypothesis, define the funnel steps:
-- If the hypothesis specifies a funnel, use those steps
-- If not, identify the natural user journey from the data (e.g., visit -> signup -> activation -> first value -> retention)
-- Each step must map to a specific event or condition in the data
+1. **Define the funnel.** Use the hypothesis's steps if specified; otherwise identify the natural journey from the data (e.g. visit → signup → activation → first value → retention). Map each step to a specific event or condition.
+2. **Compute funnel metrics.** Compute the user count at each step, step-to-step conversion (step N+1 / step N), overall conversion (final / first), and median time between steps.
+   (see references → "Step 4: Perform Funnel Analysis" for a worked funnel example)
+3. **Find drop-offs.** Identify the step with the largest absolute drop (most users lost) and the largest relative drop (lowest conversion). Segment the funnel by the Step 3 dimensions to see whether drop-offs vary by segment — the segmented funnel is one query with the dimension in `GROUP BY` (or `GROUPING SETS` across dimensions), not a re-run of the funnel per dimension. Flag the top 1-2 drop-off points as key findings.
 
-**4b. Compute Funnel Metrics**
-Write and execute SQL or Python to compute:
-- Count of users at each funnel step
-- Step-to-step conversion rate (users at step N+1 / users at step N)
-- Overall conversion rate (users at final step / users at first step)
-- Median time between steps
+### Step 6: Identify top drivers
 
-```python
-# Example: Funnel from signup to first purchase
-# Step 1: All signups in the period
-# Step 2: Completed onboarding (within 7 days of signup)
-# Step 3: First product view (within 14 days)
-# Step 4: First add-to-cart
-# Step 5: First purchase
-# Compute: count at each step, conversion rate step-to-step, time between steps
-```
-
-**4c. Identify Drop-off Points**
-- Find the step with the largest absolute drop-off (most users lost)
-- Find the step with the largest relative drop-off (lowest conversion rate)
-- Segment the funnel by the dimensions from Step 3 to see if drop-offs vary by segment
-- Flag the top 1-2 drop-off points as key findings
-
-### Step 5: Identify Top Drivers
 Determine which variables explain the most variance in the key metric.
 
-**5a. Correlation Analysis**
-For the primary metric (from the question/hypothesis), compute:
-- Correlation with every numeric variable in the dataset
-- Rank variables by absolute correlation strength
-- Flag the top 5 most correlated variables
+1. **Correlation.** For the primary metric, compute correlation with every numeric variable, rank by absolute strength, and flag the top 5.
+2. **Group comparison.** Split the population into high/low groups (above/below median, or top/bottom quartile). Compute the difference in means for each attribute between groups and rank attributes by the size of that difference.
+3. **Feature importance (when applicable).** If the dataset has enough variables (>5) and rows (>500), fit a decision tree or random forest with the key metric as target and extract feature importances. Use this for variable ranking only, not prediction.
+4. **Synthesize.** Combine correlation, group comparison, and feature importance. Variables that appear in the top 5 across multiple methods are the most robust drivers. Describe each in plain English: "Users who [behavior] have [X%] higher [metric] than those who don't."
 
-**5b. Group Comparison**
-For the primary metric, split the population into high/low groups (above/below median, or top/bottom quartile) and compare:
-- Which attributes differ most between high-performers and low-performers?
-- Compute the difference in means for each attribute between the two groups
-- Rank attributes by the size of the difference
+### Step 7: Generate visualizations
 
-**5c. Feature Importance (if applicable)**
-If the dataset has enough variables (>5) and rows (>500), fit a simple model to quantify feature importance:
-- Use a decision tree or random forest with the key metric as the target
-- Extract feature importances
-- This is for variable ranking only, not prediction — report which variables matter most
+Apply the Visualization Patterns skill (`.claude/skills/visualization-patterns/skill.md`). Produce four required charts:
 
-**5d. Synthesize Drivers**
-Combine the results from correlation, group comparison, and feature importance (if run):
-- Identify variables that appear in the top 5 across multiple methods
-- These are the most robust drivers — variables that consistently explain variance
-- For each top driver, describe the relationship in plain English: "Users who [behavior] have [X%] higher [metric] than those who don't"
+1. **Segmentation** — grouped bar chart or heatmap of the key metric by segment (one per dimension).
+2. **Funnel** — horizontal bar or funnel visualization with drop-off percentages labeled at each step.
+3. **Drivers** — horizontal bar of the top 10 drivers ranked by importance/correlation, bars colored by direction (positive/negative).
+4. **Distribution** — histogram or box plot of the primary metric.
 
-### Step 6: Generate Visualizations
-Apply the Visualization Patterns skill (`.claude/skills/visualization-patterns/skill.md`) to create charts for each finding.
+For each chart: apply the selected theme; make the title the insight, not the chart type ("Mobile users convert 2x higher than desktop", not "Conversion by Platform"); label key data points directly; add a subtitle with date range and sample size; save to `working/charts/` as PNG.
 
-**Required charts:**
-1. **Segmentation chart**: Grouped bar chart or heatmap showing key metric by segment (one per segmentation dimension)
-2. **Funnel chart**: Horizontal bar chart or funnel visualization showing conversion at each step with drop-off percentages labeled
-3. **Drivers chart**: Horizontal bar chart of top 10 drivers ranked by importance/correlation, with bars colored by direction (positive/negative)
-4. **Distribution chart**: Histogram or box plot of the primary metric to show overall distribution
+### Step 8: Triangulate and validate findings
 
-**For each chart:**
-- Apply the selected theme from the Visualization Patterns skill
-- Title is the insight, not the chart type ("Mobile users convert 2x higher than desktop" not "Conversion by Platform")
-- Label key data points directly on the chart
-- Include a subtitle with the date range and sample size
-- Save to `working/charts/` as PNG files
+Apply the Triangulation / Sanity Check skill (`.claude/skills/triangulation/skill.md`). Document every check and its result, and flag any finding that fails — do not present it as a conclusion.
 
-### Step 7: Triangulate and Validate Findings
-Apply the Triangulation / Sanity Check skill (`.claude/skills/triangulation/skill.md`):
+- **Cross-reference:** segment sizes add up to the total (exact); funnel step counts decrease monotonically (each step ≤ previous); percentages sum where they should (segment shares = 100%); conversion rates fall within plausible ranges for the business type.
+- **Order-of-magnitude:** the overall conversion rate is plausible (0.01% or 99% both warrant scrutiny); average values are reasonable (revenue per user in the right ballpark); trend directions make sense given business context.
+- **Consistency:** a metric computed two ways (e.g. revenue from transactions vs. billing) matches within 5%; segmentation and funnel run on the same population give consistent totals. Run these checks against the working-directory result files or the already-loaded table where possible, not fresh source scans.
 
-**Cross-reference checks:**
-- Do segment sizes add up to the total? (must be exact)
-- Do funnel step counts decrease monotonically? (each step <= previous step)
-- Do percentages sum correctly where they should? (segment shares = 100%)
-- Are conversion rates within plausible ranges for the business type?
+Then:
 
-**Order-of-magnitude checks:**
-- Is the overall conversion rate plausible? (e.g., 0.01% or 99% both warrant scrutiny)
-- Are average values in a reasonable range? (revenue per user in the right ballpark?)
-- Do trend directions make sense given business context?
+- **Record lineage.** Log this agent's data flow with `track()` from `helpers/lineage_tracker.py` (step, agent, inputs, outputs, metadata).
+  (see references → "Step 7: Triangulate and Validate Findings" for the call signature)
+- **Rank findings by impact.** Use `score_findings()` from `helpers/analytics_helpers.py` to order the Key Findings section highest-impact first, and include each score in findings metadata for the Story Architect agent.
+  (see references → "Step 7: Triangulate and Validate Findings" for the input schema and code)
 
-**Consistency checks:**
-- If the same metric is computed two different ways (e.g., revenue from transactions table vs. from billing table), do they match within 5%?
-- If segmentation and funnel are done on the same population, are the totals consistent?
+### Step 9: Compile the analysis report
 
-Document every check and its result. Flag any finding that fails a sanity check — do not present it as a conclusion.
-
-**7a-post. Record Lineage:**
-Log this agent's data flow for traceability:
-
-```python
-from helpers.lineage_tracker import track
-
-track(
-    step=5,  # pipeline_step from CONTRACT
-    agent="descriptive-analytics",
-    inputs=[str(DATASET)],
-    outputs=["outputs/analysis_report_{{DATE}}.md"],
-    metadata={"tables_used": tables_used, "findings_count": len(findings)}
-)
-```
-
-**7b. Rank findings by impact (use `score_findings`):**
-After validation, rank all findings by business impact using `score_findings()` from `helpers/analytics_helpers.py`:
-
-```python
-from helpers.analytics_helpers import score_findings
-
-findings = [
-    {"description": "...", "metric_value": X, "baseline_value": Y,
-     "affected_pct": Z, "actionable": True/False, "confidence": 0.0-1.0},
-    ...
-]
-result = score_findings(findings)
-for f in result['ranked_findings']:
-    print(f"  Rank {f['rank']}: {f['description']} (score={f['score']})")
-```
-
-Use the ranked order to structure the Key Findings section of the report — highest-impact findings first. Include the score in the findings metadata for downstream use by the Story Architect agent.
-
-### Step 8: Compile the Analysis Report
-Assemble all outputs into a structured report following the Output Format below. Move intermediate files from `working/` and consolidate.
+Assemble all outputs into the report below, then move and consolidate intermediate files from `working/`.
 
 ## Output Format
 
-A markdown file saved to `outputs/analysis_report_{{DATE}}.md` with charts saved to `outputs/charts/`. Structure:
+A markdown file at `outputs/analysis_report_{{DATE}}.md` with charts in `outputs/charts/`. Required sections, in order:
 
-```markdown
-# Descriptive Analytics Report
-**Generated:** {{DATE}}
-**Dataset:** {{DATASET}}
-**Questions/Hypotheses:** [reference to source document]
-**Focus:** [segmentation / funnel / drivers / all]
+- Header — date, dataset, questions, focus
+- **Executive Summary** — insights, not descriptions; surface any Simpson's Paradox finding here
+- **Key Findings** — each with Evidence / Implication / Confidence / Chart
+- **Segmentation Analysis**
+- **Funnel Analysis**
+- **Drivers Analysis**
+- **Hypothesis Evaluation** — only if {{HYPOTHESIS_DOC}} was provided
+- **Validation Report**
+- **Data Limitations**
+- **Recommended Next Steps**
 
-## Executive Summary
-[3-5 sentences: the top findings, stated as insights not descriptions.
- "Mobile users convert at 2x the rate of desktop users, driven primarily by a
- shorter time-to-first-action. The onboarding-to-activation step loses 62% of
- users, with the steepest drop among users acquired via paid search."]
-
-## Key Findings
-
-### Finding 1: [Insight headline — the "so what"]
-**Evidence:** [specific numbers, comparisons, chart reference]
-**Implication:** [what this means for the business decision]
-**Confidence:** [HIGH / MEDIUM / LOW — based on data quality and sample size]
-**Chart:** ![Finding 1](charts/finding_1.png)
-
-### Finding 2: [Insight headline]
-[same structure]
-
-### Finding 3: [Insight headline]
-[same structure]
-
-## Segmentation Analysis
-
-### Dimension: [Segmentation dimension 1]
-| Segment | Count | % of Total | [Key Metric] | vs. Average |
-|---------|-------|-----------|--------------|-------------|
-| [seg A] | [n]   | [%]       | [value]      | +X%         |
-| [seg B] | [n]   | [%]       | [value]      | -Y%         |
-| ...     | ...   | ...       | ...          | ...         |
-
-**Insight:** [What this segmentation reveals]
-**Chart:** ![Segmentation](charts/segmentation_dim1.png)
-
-### Dimension: [Segmentation dimension 2]
-[same structure]
-
-## Funnel Analysis
-
-### Funnel: [Funnel name]
-| Step | Count | Conversion | Drop-off | Median Time to Next |
-|------|-------|-----------|----------|-------------------|
-| [Step 1] | [n] | — | — | [time] |
-| [Step 2] | [n] | [%] | [%] | [time] |
-| [Step 3] | [n] | [%] | [%] | [time] |
-| ... | ... | ... | ... | ... |
-
-**Overall conversion:** [first step to last step %]
-**Biggest drop-off:** [step name] — [% lost] — [why this matters]
-**Chart:** ![Funnel](charts/funnel.png)
-
-### Funnel by Segment
-[If funnel was segmented, show comparison table]
-
-## Drivers Analysis
-
-### Top Drivers of [Key Metric]
-| Rank | Variable | Method | Strength | Direction | Plain English |
-|------|----------|--------|----------|-----------|--------------|
-| 1 | [var] | Correlation + Group comparison | Strong | Positive | "Users who X have Y% higher metric" |
-| 2 | [var] | ... | ... | ... | ... |
-| ... | ... | ... | ... | ... | ... |
-
-**Chart:** ![Drivers](charts/drivers.png)
-
-## Hypothesis Evaluation
-[Only present if {{HYPOTHESIS_DOC}} was provided]
-
-| Hypothesis | Result | Evidence | Confidence |
-|-----------|--------|----------|------------|
-| H1.1: [claim] | CONFIRMED / REJECTED / INCONCLUSIVE | [key number] | HIGH / MEDIUM / LOW |
-| H1.2: [claim] | ... | ... | ... |
-
-### Detailed Evaluation
-#### H1.1: [Hypothesis text]
-- **Expected if true:** [from hypothesis doc]
-- **Observed:** [what the data actually showed]
-- **Verdict:** [CONFIRMED / REJECTED / INCONCLUSIVE]
-- **Reasoning:** [2-3 sentences explaining why]
-
-## Validation Report
-| Check | Result | Detail |
-|-------|--------|--------|
-| Segment sizes sum to total | PASS / FAIL | [numbers] |
-| Funnel monotonically decreasing | PASS / FAIL | [numbers] |
-| Conversion rate plausible | PASS / FAIL | [range check] |
-| Cross-method consistency | PASS / FAIL | [comparison] |
-
-## Data Limitations
-- [Limitation 1: what it affects and how]
-- [Limitation 2]
-
-## Recommended Next Steps
-1. [Specific action based on findings]
-2. [Follow-up analysis to run — which agent, what inputs]
-3. [Stakeholder conversation to have]
-```
+(see references → "Step 8: Compile the Analysis Report — Full Output Format" for the complete markdown template with all table layouts)
 
 ## Skills Used
-- `.claude/skills/visualization-patterns/skill.md` — for all chart generation in Step 6, including theme selection, color palettes, annotation standards, and chart type selection logic
-- `.claude/skills/triangulation/skill.md` — for cross-referencing and sanity-checking all findings in Step 7, including order-of-magnitude checks and consistency validation
-- `.claude/skills/data-quality-check/skill.md` — for the data readiness validation in Step 2, using severity ratings to determine whether analysis can proceed
+
+- `.claude/skills/data-quality-check/skill.md` — data readiness validation (Step 2)
+- `.claude/skills/visualization-patterns/skill.md` — chart generation (Step 7)
+- `.claude/skills/triangulation/skill.md` — cross-referencing and sanity checks (Step 8)
+
+(see references → "Skills Used (detail)" for what each skill contributes)
 
 ## Validation
-Before presenting the analysis report, verify:
-1. **Segment sizes sum to total** — add up the counts in every segmentation table and confirm they equal the total population. If they don't (e.g., due to nulls in the segmentation column), explain the discrepancy explicitly.
-2. **Funnel steps are monotonically decreasing** — each step count must be less than or equal to the previous step. If a later step has more users than an earlier step, the funnel definition is wrong — fix it before reporting.
-3. **Percentages are correct** — recalculate at least 3 conversion rates or segment shares by hand (count / total) and verify they match the reported values.
-4. **Charts match the data** — verify that the numbers in at least one chart match the numbers in the corresponding table. A chart that tells a different story than the table is a critical error.
-5. **Findings are insights, not descriptions** — re-read each Key Finding headline. It should state what matters ("Mobile converts 2x higher"), not what was measured ("Conversion rates by platform"). Rewrite any descriptive headlines.
-6. **Confidence ratings are justified** — a finding rated HIGH confidence should have large sample sizes (>500 per group), clean data (<5% nulls in relevant columns), and a large effect size (>20% relative difference). Lower any rating that doesn't meet these criteria.
-7. **Hypothesis evaluations are honest** — if the data is ambiguous, the verdict must be INCONCLUSIVE, not CONFIRMED. The bar for CONFIRMED is: the observed pattern matches the expected pattern, with adequate sample size and data quality.
-8. **No unvalidated findings are presented as conclusions** — every finding in the Key Findings section must have a corresponding entry in the Validation Report. Any finding that failed a validation check must be either removed or downgraded to a caveat.
-9. **Segment-first check was performed** — the report must include evidence that the Simpson's Paradox screen (Step 3.5) was run. Check the Validation Report for entries on at least 2 default segment dimensions. If the segment-first check is missing, the analysis is incomplete — run it before presenting.
-10. **Simpson's Paradox findings are not buried** — if Step 3.5 detected opposite segment trends, this must appear in the Executive Summary and as a Key Finding with HIGH priority, not just in a segmentation table. Burying a Simpson's Paradox finding is a critical analytical error.
+
+Before presenting the report, verify each item. Any finding that fails is removed or downgraded to a caveat — never shipped as a conclusion.
+
+1. **Segment sizes sum to total.** Add the counts in every segmentation table and confirm they equal the total population. If they don't (e.g. nulls in the segmentation column), explain the discrepancy explicitly.
+2. **Funnel steps decrease monotonically.** Each step count ≤ the previous step. If a later step has more users than an earlier one, the funnel definition is wrong — fix it before reporting.
+3. **Percentages are correct.** Recompute at least 3 conversion rates or segment shares by hand (count / total) and confirm they match the reported values. Run these recomputations against the working-directory result files or the already-loaded table where possible, not fresh source scans.
+4. **Charts match the data.** Confirm the numbers in at least one chart match the corresponding table. A chart that tells a different story than its table is a critical error.
+5. **Findings are insights, not descriptions.** Each Key Finding headline states what matters ("Mobile converts 2x higher"), not what was measured ("Conversion rates by platform"). Rewrite any descriptive headline.
+6. **Confidence ratings are justified.** A HIGH-confidence finding needs large samples (>500 per group), clean data (<5% nulls in relevant columns), and a large effect (>20% relative difference). Lower any rating that misses these.
+7. **Hypothesis evaluations are honest.** When the data is ambiguous, the verdict is INCONCLUSIVE. CONFIRMED requires the observed pattern to match the expected pattern with adequate sample size and data quality.
+8. **Every finding is validated.** Each Key Finding has a corresponding entry in the Validation Report.
+9. **Segment-first check was performed.** The Validation Report shows the Simpson's Paradox screen (Step 4) ran on at least 2 default segment dimensions. If it is missing, the analysis is incomplete — run it before presenting.
+10. **Simpson's Paradox findings are surfaced.** If Step 4 detected opposite segment trends, the finding appears in the Executive Summary and as a high-priority Key Finding, not just a segmentation table.

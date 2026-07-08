@@ -12,6 +12,10 @@ triggers:
 
 # Skill: Export Results
 
+## Model conventions
+
+This skill is version-aware. Before starting, apply `skills/MODEL_CONVENTIONS.md` for the model you are: query data rather than inferring numbers (§B, §E), follow instruction scope literally (§A), let response length follow task complexity (§C), and run intelligence-sensitive analysis at high/xhigh effort (§D).
+
 ## Purpose
 Export analysis results in different formats for different audiences. Converts
 pipeline outputs into ready-to-share deliverables.
@@ -88,10 +92,10 @@ Best,
 
 Example:
 ```
-🎯 **Q2 Growth Analysis: Organic Up, Paid Down**
+🎯 **Q2 Growth Analysis: organic Up, Paid Down**
 
 Key findings:
-• Organic segment: +45% YoY (our strongest channel)
+• organic segment: +45% YoY (our strongest channel)
 • Paid acquisition: -12% YoY (due to increased CPM)
 • Overall CAC efficiency: -8% (needs correction)
 
@@ -120,7 +124,7 @@ product recommendations, which show 3x better conversion in early testing.
 
 ## Key Findings
 
-1. **Organic Growth is Accelerating**
+1. **organic Growth is Accelerating**
    - Up 45% YoY across all segments
    - Driven by brand awareness and word-of-mouth
    - Highest margin channel
